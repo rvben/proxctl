@@ -187,6 +187,8 @@ enum ConfigCommand {
     Init,
     /// Check connectivity with current configuration
     Check,
+    /// Show configuration file path and contents
+    Show,
 }
 
 // ── Config Loading ──────────────────────────────────────────────────
@@ -341,6 +343,43 @@ async fn run_version(
     }
 
     Ok(())
+}
+
+// ── Config Show ─────────────────────────────────────────────────────
+
+fn run_config_show() {
+    let path = config_path();
+    println!("Config file: {}", path.display());
+    println!();
+    match std::fs::read_to_string(&path) {
+        Ok(contents) => {
+            // Mask token secrets before printing
+            for line in contents.lines() {
+                if line.trim_start().starts_with("token") {
+                    if let Some((key, val)) = line.split_once('=') {
+                        let trimmed = val.trim().trim_matches('"');
+                        if let Some(eq_pos) = trimmed.find('=') {
+                            let masked = format!(
+                                "{}=****",
+                                &trimmed[..eq_pos]
+                            );
+                            println!("{key}= \"{masked}\"");
+                        } else {
+                            println!("{line}");
+                        }
+                    } else {
+                        println!("{line}");
+                    }
+                } else {
+                    println!("{line}");
+                }
+            }
+        }
+        Err(_) => {
+            println!("No config file found.");
+            println!("Run 'proxctl config init' to create one.");
+        }
+    }
 }
 
 // ── Config Check ────────────────────────────────────────────────────
@@ -612,12 +651,13 @@ async fn run_config_init() -> Result<(), Error> {
 
     // Step 7: Create API token
     let token_id = "proxctl";
-    let token_url = format!("{base_url}/api2/json/access/users/{username}/tokens/{token_id}");
+    let token_url = format!("{base_url}/api2/json/access/users/{username}/token/{token_id}");
 
     let create_resp = http
         .post(&token_url)
         .header("Cookie", format!("PVEAuthCookie={ticket}"))
         .header("CSRFPreventionToken", &csrf)
+        .form(&[("privsep", "0")])
         .send()
         .await
         .map_err(Error::Http)?;
@@ -647,6 +687,7 @@ async fn run_config_init() -> Result<(), Error> {
             .post(&token_url)
             .header("Cookie", format!("PVEAuthCookie={ticket}"))
             .header("CSRFPreventionToken", &csrf)
+            .form(&[("privsep", "0")])
             .send()
             .await
             .map_err(Error::Http)?;
@@ -713,6 +754,10 @@ async fn main() {
                 eprintln!("Error: {e}");
                 process::exit(e.exit_code());
             }
+            return;
+        }
+        Command::Config(ConfigCommand::Show) => {
+            run_config_show();
             return;
         }
         _ => {}
@@ -792,7 +837,10 @@ async fn main() {
         }
 
         // Already handled above
-        Command::Schema | Command::Completions { .. } | Command::Config(ConfigCommand::Init) => {
+        Command::Schema
+        | Command::Completions { .. }
+        | Command::Config(ConfigCommand::Init)
+        | Command::Config(ConfigCommand::Show) => {
             unreachable!()
         }
     };
