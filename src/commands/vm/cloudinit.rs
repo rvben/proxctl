@@ -81,12 +81,13 @@ pub async fn set(
     }
 
     if params.is_empty() {
-        return Err(Error::Config(
-            "no cloud-init options specified".to_string(),
-        ));
+        return Err(Error::Config("no cloud-init options specified".to_string()));
     }
 
-    let param_refs: Vec<(&str, &str)> = params.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+    let param_refs: Vec<(&str, &str)> = params
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
     let _: serde_json::Value = client.put(&path, &param_refs).await?;
 
     out.print_result(

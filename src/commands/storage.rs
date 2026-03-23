@@ -163,7 +163,7 @@ pub async fn run(
             list_content(client, out, n, &storage, content.as_deref()).await
         }
         StorageCommand::Upload { .. } => {
-            eprintln!("Upload not yet implemented — use the web UI or `proxmox api post`");
+            eprintln!("Upload not yet implemented — use the web UI or `proxctl api post`");
             Ok(())
         }
         StorageCommand::Download {

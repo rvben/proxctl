@@ -1,22 +1,18 @@
 [package]
-name = "proxmox-cli"
+name = "proxctl"
 version = "0.1.0"
 edition = "2024"
 rust-version = "1.90"
 description = "CLI for Proxmox VE"
 license = "MIT"
-repository = "https://github.com/rvben/proxmox-cli"
-homepage = "https://github.com/rvben/proxmox-cli"
+repository = "https://github.com/rvben/proxctl"
+homepage = "https://github.com/rvben/proxctl"
 keywords = ["proxmox", "virtualization", "cli", "kvm", "lxc"]
 categories = ["command-line-utilities"]
-default-run = "proxmox"
+default-run = "proxctl"
 
 [[bin]]
-name = "proxmox"
-path = "src/main.rs"
-
-[[bin]]
-name = "proxmox-cli"
+name = "proxctl"
 path = "src/main.rs"
 
 [dependencies]

@@ -938,7 +938,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "proxmox-cli"
+name = "proxctl"
 version = "0.1.0"
 dependencies = [
  "clap",

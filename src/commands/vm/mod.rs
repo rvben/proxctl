@@ -393,13 +393,16 @@ pub async fn run(
     global_node: Option<&str>,
 ) -> Result<(), Error> {
     match cmd {
-        VmCommand::List {
-            node,
-            status,
-            pool,
-        } => {
+        VmCommand::List { node, status, pool } => {
             let effective_node = node.as_deref().or(global_node);
-            lifecycle::list(client, out, effective_node, status.as_deref(), pool.as_deref()).await
+            lifecycle::list(
+                client,
+                out,
+                effective_node,
+                status.as_deref(),
+                pool.as_deref(),
+            )
+            .await
         }
         VmCommand::Status { vmid } => lifecycle::status(client, out, vmid, global_node).await,
         VmCommand::Start {
@@ -438,7 +441,20 @@ pub async fn run(
             name,
             description,
             onboot,
-        } => config::set(client, out, vmid, global_node, memory, cores, name, description, onboot).await,
+        } => {
+            config::set(
+                client,
+                out,
+                vmid,
+                global_node,
+                memory,
+                cores,
+                name,
+                description,
+                onboot,
+            )
+            .await
+        }
         VmCommand::Create {
             name,
             memory,
@@ -471,7 +487,18 @@ pub async fn run(
             purge,
             destroy_unreferenced_disks,
             yes,
-        } => config::destroy(client, out, vmid, global_node, purge, destroy_unreferenced_disks, yes).await,
+        } => {
+            config::destroy(
+                client,
+                out,
+                vmid,
+                global_node,
+                purge,
+                destroy_unreferenced_disks,
+                yes,
+            )
+            .await
+        }
         VmCommand::Resize { vmid, disk, size } => {
             config::resize(client, out, vmid, global_node, &disk, &size).await
         }
@@ -503,17 +530,37 @@ pub async fn run(
             online,
             timeout,
             r#async,
-        } => migrate::migrate(client, out, vmid, global_node, &target, online, timeout, r#async).await,
+        } => {
+            migrate::migrate(
+                client,
+                out,
+                vmid,
+                global_node,
+                &target,
+                online,
+                timeout,
+                r#async,
+            )
+            .await
+        }
         VmCommand::Template { vmid } => migrate::template(client, out, vmid, global_node).await,
         VmCommand::Snapshot(sub) => match sub {
-            SnapshotCommand::List { vmid } => {
-                snapshot::list(client, out, vmid, global_node).await
-            }
+            SnapshotCommand::List { vmid } => snapshot::list(client, out, vmid, global_node).await,
             SnapshotCommand::Create {
                 vmid,
                 name,
                 description,
-            } => snapshot::create(client, out, vmid, global_node, &name, description.as_deref()).await,
+            } => {
+                snapshot::create(
+                    client,
+                    out,
+                    vmid,
+                    global_node,
+                    &name,
+                    description.as_deref(),
+                )
+                .await
+            }
             SnapshotCommand::Rollback { vmid, name } => {
                 snapshot::rollback(client, out, vmid, global_node, &name).await
             }
@@ -551,8 +598,18 @@ pub async fn run(
                 comment,
             } => {
                 firewall::add(
-                    client, out, vmid, global_node, &action, &r#type, enable, source.as_deref(),
-                    dest.as_deref(), dport.as_deref(), proto.as_deref(), comment.as_deref(),
+                    client,
+                    out,
+                    vmid,
+                    global_node,
+                    &action,
+                    &r#type,
+                    enable,
+                    source.as_deref(),
+                    dest.as_deref(),
+                    dport.as_deref(),
+                    proto.as_deref(),
+                    comment.as_deref(),
                 )
                 .await
             }

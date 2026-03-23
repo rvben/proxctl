@@ -71,10 +71,15 @@ pub async fn set(
     }
 
     if params.is_empty() {
-        return Err(Error::Config("no configuration options specified".to_string()));
+        return Err(Error::Config(
+            "no configuration options specified".to_string(),
+        ));
     }
 
-    let param_refs: Vec<(&str, &str)> = params.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+    let param_refs: Vec<(&str, &str)> = params
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
     let _: serde_json::Value = client.put(&path, &param_refs).await?;
 
     out.print_result(
@@ -130,11 +135,21 @@ pub async fn create(
         params.push(("ide2".to_string(), format!("{i},media=cdrom")));
     }
 
-    let param_refs: Vec<(&str, &str)> = params.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+    let param_refs: Vec<(&str, &str)> = params
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
     let path = format!("/nodes/{target_node}/qemu");
 
     let result = client
-        .execute_task(&path, &param_refs, &target_node, timeout, !async_mode, out.should_show_spinner())
+        .execute_task(
+            &path,
+            &param_refs,
+            &target_node,
+            timeout,
+            !async_mode,
+            out.should_show_spinner(),
+        )
         .await?;
 
     out.print_result(

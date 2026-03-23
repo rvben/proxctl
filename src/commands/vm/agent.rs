@@ -82,10 +82,7 @@ pub async fn file_read(
     if out.json {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
     } else {
-        let content = data
-            .get("content")
-            .and_then(|v| v.as_str())
-            .unwrap_or("");
+        let content = data.get("content").and_then(|v| v.as_str()).unwrap_or("");
         print!("{content}");
     }
 

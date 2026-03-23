@@ -5,30 +5,30 @@ use clap::{Parser, Subcommand};
 use clap_complete::Shell;
 use serde_json::json;
 
-use proxmox_cli::api::client::ProxmoxClient;
-use proxmox_cli::api::error::exit_codes;
-use proxmox_cli::api::token::ApiToken;
-use proxmox_cli::commands::access::AccessCommand;
-use proxmox_cli::commands::backup::BackupCommand;
-use proxmox_cli::commands::ceph::CephCommand;
-use proxmox_cli::commands::cluster::ClusterCommand;
-use proxmox_cli::commands::container::ContainerCommand;
-use proxmox_cli::commands::firewall::FirewallCommand;
-use proxmox_cli::commands::node::NodeCommand;
-use proxmox_cli::commands::pool::PoolCommand;
-use proxmox_cli::commands::storage::StorageCommand;
-use proxmox_cli::commands::task::TaskCommand;
-use proxmox_cli::commands::vm::VmCommand;
-use proxmox_cli::output::OutputConfig;
+use proxctl::api::client::ProxmoxClient;
+use proxctl::api::error::exit_codes;
+use proxctl::api::token::ApiToken;
+use proxctl::commands::access::AccessCommand;
+use proxctl::commands::backup::BackupCommand;
+use proxctl::commands::ceph::CephCommand;
+use proxctl::commands::cluster::ClusterCommand;
+use proxctl::commands::container::ContainerCommand;
+use proxctl::commands::firewall::FirewallCommand;
+use proxctl::commands::node::NodeCommand;
+use proxctl::commands::pool::PoolCommand;
+use proxctl::commands::storage::StorageCommand;
+use proxctl::commands::task::TaskCommand;
+use proxctl::commands::vm::VmCommand;
+use proxctl::output::OutputConfig;
 
-type Error = proxmox_cli::api::Error;
+type Error = proxctl::api::Error;
 
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // ── CLI Structures ──────────────────────────────────────────────────
 
 #[derive(Parser)]
-#[command(name = "proxmox", version, about = "CLI for Proxmox VE")]
+#[command(name = "proxctl", version, about = "CLI for Proxmox VE")]
 struct Cli {
     /// Proxmox host (e.g. pve.example.com:8006)
     #[arg(long, env = "PROXMOX_HOST", global = true)]
@@ -194,11 +194,11 @@ enum ConfigCommand {
 fn config_path() -> PathBuf {
     dirs::config_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join("proxmox")
+        .join("proxctl")
         .join("config.toml")
 }
 
-/// Loads configuration from `~/.config/proxmox/config.toml`.
+/// Loads configuration from `~/.config/proxctl/config.toml`.
 ///
 /// Returns (host, token, insecure) from the given profile or [default].
 fn load_config(profile: Option<&str>) -> (Option<String>, Option<String>, Option<bool>) {
@@ -250,7 +250,7 @@ async fn run_api_command(
     client: &ProxmoxClient,
     cmd: &ApiCommand,
     output: &OutputConfig,
-) -> Result<(), proxmox_cli::api::Error> {
+) -> Result<(), proxctl::api::Error> {
     match cmd {
         ApiCommand::Get {
             path,
@@ -292,7 +292,7 @@ async fn run_api_command(
 async fn run_health(
     client: &ProxmoxClient,
     output: &OutputConfig,
-) -> Result<(), proxmox_cli::api::Error> {
+) -> Result<(), proxctl::api::Error> {
     let version = client.get_version().await?;
     let nodes = client.list_nodes().await?;
 
@@ -322,7 +322,7 @@ async fn run_health(
 async fn run_version(
     client: &ProxmoxClient,
     output: &OutputConfig,
-) -> Result<(), proxmox_cli::api::Error> {
+) -> Result<(), proxctl::api::Error> {
     let server_version = client.get_version().await?;
 
     if output.json {
@@ -333,7 +333,7 @@ async fn run_version(
         });
         output.print_data(&serde_json::to_string_pretty(&json).expect("serialize"));
     } else {
-        println!("proxmox-cli {VERSION}");
+        println!("proxctl {VERSION}");
         println!(
             "Proxmox VE {}-{}",
             server_version.version, server_version.release
@@ -348,7 +348,7 @@ async fn run_version(
 async fn run_config_check(
     client: &ProxmoxClient,
     output: &OutputConfig,
-) -> Result<(), proxmox_cli::api::Error> {
+) -> Result<(), proxctl::api::Error> {
     let version = client.get_version().await?;
 
     if output.json {
@@ -371,7 +371,7 @@ async fn run_config_check(
 
 fn print_schema() {
     let schema = json!({
-        "name": "proxmox",
+        "name": "proxctl",
         "version": VERSION,
         "description": "CLI for Proxmox VE",
         "global_flags": {
@@ -417,7 +417,7 @@ fn generate_completions(shell: Shell, install: bool) {
         process::exit(1);
     }
 
-    generate(shell, &mut cmd, "proxmox", &mut std::io::stdout());
+    generate(shell, &mut cmd, "proxctl", &mut std::io::stdout());
 }
 
 // ── Config Init ──────────────────────────────────────────────────────
@@ -425,7 +425,7 @@ fn generate_completions(shell: Shell, install: bool) {
 fn default_config_path() -> Result<PathBuf, Error> {
     let base = dirs::config_dir()
         .ok_or_else(|| Error::Config("cannot determine config directory".to_string()))?;
-    Ok(base.join("proxmox").join("config.toml"))
+    Ok(base.join("proxctl").join("config.toml"))
 }
 
 /// Reads a value from a specific profile section within a parsed TOML table.
@@ -611,7 +611,7 @@ async fn run_config_init() -> Result<(), Error> {
     println!("Authenticated. Creating API token ...");
 
     // Step 7: Create API token
-    let token_id = "proxmox-cli";
+    let token_id = "proxctl";
     let token_url = format!("{base_url}/api2/json/access/users/{username}/tokens/{token_id}");
 
     let create_resp = http
@@ -685,7 +685,7 @@ async fn run_config_init() -> Result<(), Error> {
     )?;
 
     println!("Config saved to {}", config_path.display());
-    println!("Run `proxmox health` to verify connectivity.");
+    println!("Run `proxctl health` to verify connectivity.");
 
     Ok(())
 }
@@ -758,37 +758,37 @@ async fn main() {
         Command::Api(ref cmd) => run_api_command(&client, cmd, &output).await,
 
         Command::Vm(cmd) => {
-            proxmox_cli::commands::vm::run(&client, output, cmd, cli.node.as_deref()).await
+            proxctl::commands::vm::run(&client, output, cmd, cli.node.as_deref()).await
         }
         Command::Container(cmd) => {
-            proxmox_cli::commands::container::run(&client, output, cmd, cli.node.as_deref()).await
+            proxctl::commands::container::run(&client, output, cmd, cli.node.as_deref()).await
         }
         Command::Node(cmd) => {
-            proxmox_cli::commands::node::run(&client, output, cmd, cli.node.as_deref()).await
+            proxctl::commands::node::run(&client, output, cmd, cli.node.as_deref()).await
         }
         Command::Task(cmd) => {
-            proxmox_cli::commands::task::run(&client, output, cmd, cli.node.as_deref()).await
+            proxctl::commands::task::run(&client, output, cmd, cli.node.as_deref()).await
         }
         Command::Storage(cmd) => {
-            proxmox_cli::commands::storage::run(&client, output, cmd, cli.node.as_deref()).await
+            proxctl::commands::storage::run(&client, output, cmd, cli.node.as_deref()).await
         }
         Command::Backup(cmd) => {
-            proxmox_cli::commands::backup::run(&client, output, cmd, cli.node.as_deref()).await
+            proxctl::commands::backup::run(&client, output, cmd, cli.node.as_deref()).await
         }
         Command::Cluster(cmd) => {
-            proxmox_cli::commands::cluster::run(&client, output, cmd, cli.node.as_deref()).await
+            proxctl::commands::cluster::run(&client, output, cmd, cli.node.as_deref()).await
         }
         Command::Firewall(cmd) => {
-            proxmox_cli::commands::firewall::run(&client, output, cmd, cli.node.as_deref()).await
+            proxctl::commands::firewall::run(&client, output, cmd, cli.node.as_deref()).await
         }
         Command::Access(cmd) => {
-            proxmox_cli::commands::access::run(&client, output, cmd, cli.node.as_deref()).await
+            proxctl::commands::access::run(&client, output, cmd, cli.node.as_deref()).await
         }
         Command::Pool(cmd) => {
-            proxmox_cli::commands::pool::run(&client, output, cmd, cli.node.as_deref()).await
+            proxctl::commands::pool::run(&client, output, cmd, cli.node.as_deref()).await
         }
         Command::Ceph(cmd) => {
-            proxmox_cli::commands::ceph::run(&client, output, cmd, cli.node.as_deref()).await
+            proxctl::commands::ceph::run(&client, output, cmd, cli.node.as_deref()).await
         }
 
         // Already handled above
@@ -813,7 +813,7 @@ mod tests {
     #[test]
     fn cli_schema_no_auth_required() {
         // Schema command should parse without host/token
-        let cli = Cli::try_parse_from(["proxmox", "schema"]).unwrap();
+        let cli = Cli::try_parse_from(["proxctl", "schema"]).unwrap();
         assert!(matches!(cli.command, Command::Schema));
         assert!(cli.host.is_none());
         assert!(cli.token.is_none());
@@ -821,31 +821,31 @@ mod tests {
 
     #[test]
     fn cli_json_flag() {
-        let cli = Cli::try_parse_from(["proxmox", "--json", "schema"]).unwrap();
+        let cli = Cli::try_parse_from(["proxctl", "--json", "schema"]).unwrap();
         assert!(cli.json);
     }
 
     #[test]
     fn cli_quiet_flag() {
-        let cli = Cli::try_parse_from(["proxmox", "--quiet", "schema"]).unwrap();
+        let cli = Cli::try_parse_from(["proxctl", "--quiet", "schema"]).unwrap();
         assert!(cli.quiet);
     }
 
     #[test]
     fn cli_insecure_flag() {
-        let cli = Cli::try_parse_from(["proxmox", "--insecure", "schema"]).unwrap();
+        let cli = Cli::try_parse_from(["proxctl", "--insecure", "schema"]).unwrap();
         assert!(cli.insecure);
     }
 
     #[test]
     fn cli_vm_alias_qm() {
-        let cli = Cli::try_parse_from(["proxmox", "qm", "list"]).unwrap();
+        let cli = Cli::try_parse_from(["proxctl", "qm", "list"]).unwrap();
         assert!(matches!(cli.command, Command::Vm(VmCommand::List { .. })));
     }
 
     #[test]
     fn cli_container_alias_ct() {
-        let cli = Cli::try_parse_from(["proxmox", "ct", "list"]).unwrap();
+        let cli = Cli::try_parse_from(["proxctl", "ct", "list"]).unwrap();
         assert!(matches!(
             cli.command,
             Command::Container(ContainerCommand::List { .. })
@@ -854,19 +854,19 @@ mod tests {
 
     #[test]
     fn cli_health() {
-        let cli = Cli::try_parse_from(["proxmox", "health"]).unwrap();
+        let cli = Cli::try_parse_from(["proxctl", "health"]).unwrap();
         assert!(matches!(cli.command, Command::Health));
     }
 
     #[test]
     fn cli_version() {
-        let cli = Cli::try_parse_from(["proxmox", "version"]).unwrap();
+        let cli = Cli::try_parse_from(["proxctl", "version"]).unwrap();
         assert!(matches!(cli.command, Command::Version));
     }
 
     #[test]
     fn cli_api_get() {
-        let cli = Cli::try_parse_from(["proxmox", "api", "get", "/nodes"]).unwrap();
+        let cli = Cli::try_parse_from(["proxctl", "api", "get", "/nodes"]).unwrap();
         match &cli.command {
             Command::Api(ApiCommand::Get {
                 path,
@@ -923,25 +923,25 @@ mod tests {
 
     #[test]
     fn cli_config_init() {
-        let cli = Cli::try_parse_from(["proxmox", "config", "init"]).unwrap();
+        let cli = Cli::try_parse_from(["proxctl", "config", "init"]).unwrap();
         assert!(matches!(cli.command, Command::Config(ConfigCommand::Init)));
     }
 
     #[test]
     fn cli_config_check() {
-        let cli = Cli::try_parse_from(["proxmox", "config", "check"]).unwrap();
+        let cli = Cli::try_parse_from(["proxctl", "config", "check"]).unwrap();
         assert!(matches!(cli.command, Command::Config(ConfigCommand::Check)));
     }
 
     #[test]
     fn cli_profile_flag() {
-        let cli = Cli::try_parse_from(["proxmox", "--profile", "production", "schema"]).unwrap();
+        let cli = Cli::try_parse_from(["proxctl", "--profile", "production", "schema"]).unwrap();
         assert_eq!(cli.profile.as_deref(), Some("production"));
     }
 
     #[test]
     fn cli_missing_subcommand_fails() {
-        let result = Cli::try_parse_from(["proxmox"]);
+        let result = Cli::try_parse_from(["proxctl"]);
         assert!(result.is_err());
     }
 
@@ -950,7 +950,7 @@ mod tests {
     #[test]
     fn load_config_all_values() {
         let dir = tempfile::tempdir().unwrap();
-        let config_dir = dir.path().join("proxmox");
+        let config_dir = dir.path().join("proxctl");
         std::fs::create_dir_all(&config_dir).unwrap();
         let config_file = config_dir.join("config.toml");
 
@@ -987,7 +987,7 @@ insecure = true
     #[test]
     fn load_config_profile() {
         let dir = tempfile::tempdir().unwrap();
-        let config_dir = dir.path().join("proxmox");
+        let config_dir = dir.path().join("proxctl");
         std::fs::create_dir_all(&config_dir).unwrap();
         let config_file = config_dir.join("config.toml");
 
@@ -1034,7 +1034,7 @@ token = "admin@pve!prod=prodtoken123"
     #[test]
     fn load_config_missing_profile() {
         let dir = tempfile::tempdir().unwrap();
-        let config_dir = dir.path().join("proxmox");
+        let config_dir = dir.path().join("proxctl");
         std::fs::create_dir_all(&config_dir).unwrap();
         let config_file = config_dir.join("config.toml");
 

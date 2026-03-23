@@ -30,11 +30,7 @@ fn colorize_status(status: &str) -> String {
 }
 
 /// Get the current status string for a VM.
-async fn get_vm_status(
-    client: &ProxmoxClient,
-    vmid: u32,
-    node: &str,
-) -> Result<String, Error> {
+async fn get_vm_status(client: &ProxmoxClient, vmid: u32, node: &str) -> Result<String, Error> {
     let path = format!("/nodes/{node}/qemu/{vmid}/status/current");
     let data: serde_json::Value = client.get(&path).await?;
     Ok(data
@@ -109,31 +105,19 @@ pub async fn list(
     );
 
     for vm in &vms {
-        let vmid = vm
-            .get("vmid")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0);
-        let name = vm
-            .get("name")
-            .and_then(|v| v.as_str())
-            .unwrap_or("-");
+        let vmid = vm.get("vmid").and_then(|v| v.as_u64()).unwrap_or(0);
+        let name = vm.get("name").and_then(|v| v.as_str()).unwrap_or("-");
         let status = vm
             .get("status")
             .and_then(|v| v.as_str())
             .unwrap_or("unknown");
-        let node_name = vm
-            .get("node")
-            .and_then(|v| v.as_str())
-            .unwrap_or("-");
+        let node_name = vm.get("node").and_then(|v| v.as_str()).unwrap_or("-");
         let cpus = vm
             .get("maxcpu")
             .or_else(|| vm.get("cpus"))
             .and_then(|v| v.as_u64().or_else(|| v.as_f64().map(|f| f as u64)))
             .unwrap_or(0);
-        let maxmem = vm
-            .get("maxmem")
-            .and_then(|v| v.as_u64())
-            .unwrap_or(0);
+        let maxmem = vm.get("maxmem").and_then(|v| v.as_u64()).unwrap_or(0);
 
         println!(
             "{:>6}  {:<20}  {:<10}  {:<10}  {:>5}  {:>10}",
@@ -164,7 +148,10 @@ pub async fn status(
         return Ok(());
     }
 
-    let status = data.get("status").and_then(|v| v.as_str()).unwrap_or("unknown");
+    let status = data
+        .get("status")
+        .and_then(|v| v.as_str())
+        .unwrap_or("unknown");
     let name = data.get("name").and_then(|v| v.as_str()).unwrap_or("-");
     let cpus = data.get("cpus").and_then(|v| v.as_u64()).unwrap_or(0);
     let maxmem = data.get("maxmem").and_then(|v| v.as_u64()).unwrap_or(0);
@@ -210,7 +197,14 @@ pub async fn start(
 
     let path = format!("/nodes/{node}/qemu/{vmid}/status/start");
     let result = client
-        .execute_task(&path, &[], &node, timeout, !async_mode, out.should_show_spinner())
+        .execute_task(
+            &path,
+            &[],
+            &node,
+            timeout,
+            !async_mode,
+            out.should_show_spinner(),
+        )
         .await?;
 
     out.print_result(
@@ -242,7 +236,14 @@ pub async fn stop(
 
     let path = format!("/nodes/{node}/qemu/{vmid}/status/stop");
     let result = client
-        .execute_task(&path, &[], &node, timeout, !async_mode, out.should_show_spinner())
+        .execute_task(
+            &path,
+            &[],
+            &node,
+            timeout,
+            !async_mode,
+            out.should_show_spinner(),
+        )
         .await?;
 
     out.print_result(
@@ -286,7 +287,14 @@ pub async fn shutdown(
     }
 
     let result = client
-        .execute_task(&path, &params, &node, timeout, !async_mode, out.should_show_spinner())
+        .execute_task(
+            &path,
+            &params,
+            &node,
+            timeout,
+            !async_mode,
+            out.should_show_spinner(),
+        )
         .await?;
 
     out.print_result(
@@ -310,7 +318,14 @@ pub async fn reboot(
     let params = [("timeout", timeout_str.as_str())];
 
     let result = client
-        .execute_task(&path, &params, &node, timeout, !async_mode, out.should_show_spinner())
+        .execute_task(
+            &path,
+            &params,
+            &node,
+            timeout,
+            !async_mode,
+            out.should_show_spinner(),
+        )
         .await?;
 
     out.print_result(
@@ -412,9 +427,7 @@ pub async fn console(
     } else {
         println!("VM {vmid} console (node: {node})");
         println!("  Type: VNC/SPICE via Proxmox web UI");
-        println!(
-            "  Hint: Open https://<proxmox-host>/?console=kvm&vmid={vmid}&node={node}"
-        );
+        println!("  Hint: Open https://<proxmox-host>/?console=kvm&vmid={vmid}&node={node}");
     }
 
     Ok(())

@@ -89,7 +89,10 @@ pub async fn add(
         params.push(("comment".to_string(), c.to_string()));
     }
 
-    let param_refs: Vec<(&str, &str)> = params.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+    let param_refs: Vec<(&str, &str)> = params
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
     let _: serde_json::Value = client.post(&path, &param_refs).await?;
 
     out.print_result(

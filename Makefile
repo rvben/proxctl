@@ -22,4 +22,4 @@ clean:
 	cargo clean
 
 install: release
-	cp target/release/proxmox ~/.local/bin/proxmox
+	cp target/release/proxctl ~/.local/bin/proxctl

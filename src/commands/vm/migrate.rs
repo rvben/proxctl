@@ -32,11 +32,21 @@ pub async fn clone(
         params.push(("full".to_string(), "1".to_string()));
     }
 
-    let param_refs: Vec<(&str, &str)> = params.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+    let param_refs: Vec<(&str, &str)> = params
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
     let path = format!("/nodes/{node}/qemu/{vmid}/clone");
 
     let result = client
-        .execute_task(&path, &param_refs, &node, timeout, !async_mode, out.should_show_spinner())
+        .execute_task(
+            &path,
+            &param_refs,
+            &node,
+            timeout,
+            !async_mode,
+            out.should_show_spinner(),
+        )
         .await?;
 
     out.print_result(
@@ -70,10 +80,20 @@ pub async fn migrate(
         params.push(("online".to_string(), "1".to_string()));
     }
 
-    let param_refs: Vec<(&str, &str)> = params.iter().map(|(k, v)| (k.as_str(), v.as_str())).collect();
+    let param_refs: Vec<(&str, &str)> = params
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.as_str()))
+        .collect();
 
     let result = client
-        .execute_task(&path, &param_refs, &node, timeout, !async_mode, out.should_show_spinner())
+        .execute_task(
+            &path,
+            &param_refs,
+            &node,
+            timeout,
+            !async_mode,
+            out.should_show_spinner(),
+        )
         .await?;
 
     out.print_result(
