@@ -409,35 +409,9 @@ async fn run_config_check(
 // ── Schema ──────────────────────────────────────────────────────────
 
 fn print_schema() {
-    let schema = json!({
-        "name": "proxctl",
-        "version": VERSION,
-        "description": "CLI for Proxmox VE",
-        "global_flags": {
-            "--host": {"type": "string", "env": "PROXMOX_HOST", "description": "Proxmox host"},
-            "--token": {"type": "string", "env": "PROXMOX_TOKEN", "description": "API token"},
-            "--node": {"type": "string", "env": "PROXMOX_NODE", "description": "Default node"},
-            "--profile": {"type": "string", "env": "PROXMOX_PROFILE", "description": "Config profile"},
-            "--json": {"type": "bool", "description": "Output as JSON"},
-            "--quiet": {"type": "bool", "description": "Suppress non-essential output"},
-            "--insecure": {"type": "bool", "description": "Accept invalid TLS certificates"},
-        },
-        "commands": [
-            "vm", "container", "node", "task", "storage", "backup",
-            "cluster", "firewall", "access", "pool", "ceph", "api",
-            "health", "config", "schema", "completions", "version",
-        ],
-        "exit_codes": {
-            "0": "success",
-            "1": "general error",
-            "2": "configuration error",
-            "3": "authentication error",
-            "4": "not found",
-            "5": "API error",
-            "6": "conflict",
-            "7": "timeout",
-        },
-    });
+    use clap::CommandFactory;
+    let cmd = Cli::command();
+    let schema = proxctl::schema::generate(&cmd);
     println!(
         "{}",
         serde_json::to_string_pretty(&schema).expect("serialize schema")
