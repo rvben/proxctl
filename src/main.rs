@@ -10,6 +10,7 @@ use proxmox_cli::api::error::exit_codes;
 use proxmox_cli::api::token::ApiToken;
 use proxmox_cli::commands::access::AccessCommand;
 use proxmox_cli::commands::backup::BackupCommand;
+use proxmox_cli::commands::ceph::CephCommand;
 use proxmox_cli::commands::cluster::ClusterCommand;
 use proxmox_cli::commands::container::ContainerCommand;
 use proxmox_cli::commands::firewall::FirewallCommand;
@@ -136,12 +137,6 @@ enum Command {
 }
 
 // ── Subcommand Enums (stubs) ────────────────────────────────────────
-
-#[derive(Subcommand)]
-enum CephCommand {
-    /// Show Ceph status
-    Status,
-}
 
 #[derive(Subcommand)]
 enum ApiCommand {
@@ -423,13 +418,6 @@ fn generate_completions(shell: Shell, install: bool) {
     }
 
     generate(shell, &mut cmd, "proxmox", &mut std::io::stdout());
-}
-
-// ── Stub Handler ────────────────────────────────────────────────────
-
-fn not_yet_implemented(name: &str) -> ! {
-    eprintln!("Command not yet implemented: {name}");
-    process::exit(1);
 }
 
 // ── Config Init ──────────────────────────────────────────────────────
@@ -799,7 +787,9 @@ async fn main() {
         Command::Pool(cmd) => {
             proxmox_cli::commands::pool::run(&client, output, cmd, cli.node.as_deref()).await
         }
-        Command::Ceph(_) => not_yet_implemented("ceph"),
+        Command::Ceph(cmd) => {
+            proxmox_cli::commands::ceph::run(&client, output, cmd, cli.node.as_deref()).await
+        }
 
         // Already handled above
         Command::Schema | Command::Completions { .. } | Command::Config(ConfigCommand::Init) => {

@@ -1,6 +1,7 @@
 pub mod access;
 pub mod api;
 pub mod backup;
+pub mod ceph;
 pub mod cluster;
 pub mod container;
 pub mod firewall;
