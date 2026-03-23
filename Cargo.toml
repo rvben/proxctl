@@ -10,6 +10,7 @@ homepage = "https://github.com/rvben/proxctl"
 keywords = ["proxmox", "virtualization", "cli", "kvm", "lxc"]
 categories = ["command-line-utilities"]
 default-run = "proxctl"
+exclude = ["DESIGN.md", "PLAN-PHASE1.md"]
 
 [[bin]]
 name = "proxctl"
