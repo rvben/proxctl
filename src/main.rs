@@ -8,6 +8,7 @@ use serde_json::json;
 use proxmox_cli::api::client::ProxmoxClient;
 use proxmox_cli::api::error::exit_codes;
 use proxmox_cli::api::token::ApiToken;
+use proxmox_cli::commands::backup::BackupCommand;
 use proxmox_cli::commands::container::ContainerCommand;
 use proxmox_cli::commands::node::NodeCommand;
 use proxmox_cli::commands::storage::StorageCommand;
@@ -131,12 +132,6 @@ enum Command {
 }
 
 // ── Subcommand Enums (stubs) ────────────────────────────────────────
-
-#[derive(Subcommand)]
-enum BackupCommand {
-    /// List backups
-    List,
-}
 
 #[derive(Subcommand)]
 enum ClusterCommand {
@@ -809,7 +804,9 @@ async fn main() {
         Command::Storage(cmd) => {
             proxmox_cli::commands::storage::run(&client, output, cmd, cli.node.as_deref()).await
         }
-        Command::Backup(_) => not_yet_implemented("backup"),
+        Command::Backup(cmd) => {
+            proxmox_cli::commands::backup::run(&client, output, cmd, cli.node.as_deref()).await
+        }
         Command::Cluster(_) => not_yet_implemented("cluster"),
         Command::Firewall(_) => not_yet_implemented("firewall"),
         Command::Access(_) => not_yet_implemented("access"),
