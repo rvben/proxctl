@@ -1,9 +1,10 @@
 use clap::Subcommand;
+use owo_colors::OwoColorize;
 use serde_json::json;
 
 use crate::api::Error;
 use crate::api::client::ProxmoxClient;
-use crate::output::OutputConfig;
+use crate::output::{OutputConfig, use_color};
 
 fn require_node<'a>(node: Option<&'a str>, global_node: Option<&'a str>) -> Result<&'a str, Error> {
     node.or(global_node)
@@ -287,10 +288,19 @@ pub async fn run(
 }
 
 fn print_rules(data: &[serde_json::Value]) {
-    println!(
+    let color = use_color();
+    let header = format!(
         "{:>4}  {:<8}  {:<6}  {:<8}  {:<18}  {:<18}  {:<8}  COMMENT",
         "POS", "ACTION", "TYPE", "PROTO", "SOURCE", "DEST", "DPORT"
     );
+    let total_w = 4 + 2 + 8 + 2 + 6 + 2 + 8 + 2 + 18 + 2 + 18 + 2 + 8 + 2 + 7; // "COMMENT" is 7 chars
+    if color {
+        println!("{}", header.bold());
+        println!("{}", "-".repeat(total_w).dimmed());
+    } else {
+        println!("{header}");
+        println!("{}", "-".repeat(total_w));
+    }
     for rule in data {
         let pos = rule.get("pos").and_then(|v| v.as_u64()).unwrap_or(0);
         let action = rule.get("action").and_then(|v| v.as_str()).unwrap_or("-");
@@ -300,10 +310,24 @@ fn print_rules(data: &[serde_json::Value]) {
         let dest = rule.get("dest").and_then(|v| v.as_str()).unwrap_or("-");
         let dport = rule.get("dport").and_then(|v| v.as_str()).unwrap_or("-");
         let comment = rule.get("comment").and_then(|v| v.as_str()).unwrap_or("");
-        println!(
-            "{:>4}  {:<8}  {:<6}  {:<8}  {:<18}  {:<18}  {:<8}  {}",
-            pos, action, rtype, proto, source, dest, dport, comment
-        );
+        if color {
+            println!(
+                "{:>4}  {:<8}  {:<6}  {:<8}  {:<18}  {:<18}  {:<8}  {}",
+                pos.to_string().dimmed(),
+                action.bold(),
+                rtype.to_string().dimmed(),
+                proto.to_string().dimmed(),
+                source.to_string().dimmed(),
+                dest.to_string().dimmed(),
+                dport.to_string().dimmed(),
+                comment
+            );
+        } else {
+            println!(
+                "{:>4}  {:<8}  {:<6}  {:<8}  {:<18}  {:<18}  {:<8}  {}",
+                pos, action, rtype, proto, source, dest, dport, comment
+            );
+        }
     }
 }
 
@@ -493,11 +517,24 @@ async fn groups(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> 
         return Ok(());
     }
 
-    println!("{:<20}  COMMENT", "GROUP");
+    let color = use_color();
+    let grp_header = format!("{:<20}  COMMENT", "GROUP");
+    let grp_total_w = 20 + 2 + 7; // "COMMENT" is 7 chars
+    if color {
+        println!("{}", grp_header.bold());
+        println!("{}", "-".repeat(grp_total_w).dimmed());
+    } else {
+        println!("{grp_header}");
+        println!("{}", "-".repeat(grp_total_w));
+    }
     for g in &data {
         let name = g.get("group").and_then(|v| v.as_str()).unwrap_or("-");
         let comment = g.get("comment").and_then(|v| v.as_str()).unwrap_or("");
-        println!("{:<20}  {}", name, comment);
+        if color {
+            println!("{:<20}  {}", name.bold(), comment);
+        } else {
+            println!("{:<20}  {}", name, comment);
+        }
     }
 
     Ok(())
@@ -573,11 +610,24 @@ async fn ipset_list(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Err
         return Ok(());
     }
 
-    println!("{:<20}  COMMENT", "IPSET");
+    let color = use_color();
+    let ipset_header = format!("{:<20}  COMMENT", "IPSET");
+    let ipset_total_w = 20 + 2 + 7; // "COMMENT" is 7 chars
+    if color {
+        println!("{}", ipset_header.bold());
+        println!("{}", "-".repeat(ipset_total_w).dimmed());
+    } else {
+        println!("{ipset_header}");
+        println!("{}", "-".repeat(ipset_total_w));
+    }
     for s in &data {
         let name = s.get("name").and_then(|v| v.as_str()).unwrap_or("-");
         let comment = s.get("comment").and_then(|v| v.as_str()).unwrap_or("");
-        println!("{:<20}  {}", name, comment);
+        if color {
+            println!("{:<20}  {}", name.bold(), comment);
+        } else {
+            println!("{:<20}  {}", name, comment);
+        }
     }
 
     Ok(())
@@ -599,11 +649,24 @@ async fn ipset_show(client: &ProxmoxClient, out: OutputConfig, name: &str) -> Re
     }
 
     println!("IP Set: {name}");
-    println!("{:<20}  COMMENT", "CIDR");
+    let color = use_color();
+    let cidr_header = format!("{:<20}  COMMENT", "CIDR");
+    let cidr_total_w = 20 + 2 + 7;
+    if color {
+        println!("{}", cidr_header.bold());
+        println!("{}", "-".repeat(cidr_total_w).dimmed());
+    } else {
+        println!("{cidr_header}");
+        println!("{}", "-".repeat(cidr_total_w));
+    }
     for entry in &data {
         let cidr = entry.get("cidr").and_then(|v| v.as_str()).unwrap_or("-");
         let comment = entry.get("comment").and_then(|v| v.as_str()).unwrap_or("");
-        println!("{:<20}  {}", cidr, comment);
+        if color {
+            println!("{:<20}  {}", cidr.bold(), comment);
+        } else {
+            println!("{:<20}  {}", cidr, comment);
+        }
     }
 
     Ok(())
@@ -659,12 +722,30 @@ async fn aliases(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error>
         return Ok(());
     }
 
-    println!("{:<20}  {:<20}  COMMENT", "NAME", "CIDR");
+    let color = use_color();
+    let alias_header = format!("{:<20}  {:<20}  COMMENT", "NAME", "CIDR");
+    let alias_total_w = 20 + 2 + 20 + 2 + 7; // "COMMENT" is 7 chars
+    if color {
+        println!("{}", alias_header.bold());
+        println!("{}", "-".repeat(alias_total_w).dimmed());
+    } else {
+        println!("{alias_header}");
+        println!("{}", "-".repeat(alias_total_w));
+    }
     for a in &data {
         let name = a.get("name").and_then(|v| v.as_str()).unwrap_or("-");
         let cidr = a.get("cidr").and_then(|v| v.as_str()).unwrap_or("-");
         let comment = a.get("comment").and_then(|v| v.as_str()).unwrap_or("");
-        println!("{:<20}  {:<20}  {}", name, cidr, comment);
+        if color {
+            println!(
+                "{:<20}  {:<20}  {}",
+                name.bold(),
+                cidr.to_string().dimmed(),
+                comment
+            );
+        } else {
+            println!("{:<20}  {:<20}  {}", name, cidr, comment);
+        }
     }
 
     Ok(())

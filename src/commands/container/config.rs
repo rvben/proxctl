@@ -1,10 +1,11 @@
 use std::io::IsTerminal;
 
+use owo_colors::OwoColorize;
 use serde_json::json;
 
 use crate::api::Error;
 use crate::api::client::ProxmoxClient;
-use crate::output::OutputConfig;
+use crate::output::{OutputConfig, use_color};
 
 pub async fn show(
     client: &ProxmoxClient,
@@ -26,15 +27,28 @@ pub async fn show(
         keys.sort();
         let max_key_len = keys.iter().map(|k| k.len()).max().unwrap_or(0);
         let col_width = max_key_len.max(3) + 2;
+        let total_w = col_width + 2 + 5; // "VALUE" header is 5 chars
 
-        println!("{:<col_width$}  VALUE", "KEY");
+        let color = use_color();
+        let header = format!("{:<col_width$}  VALUE", "KEY");
+        if color {
+            println!("{}", header.bold());
+            println!("{}", "-".repeat(total_w).dimmed());
+        } else {
+            println!("{header}");
+            println!("{}", "-".repeat(total_w));
+        }
         for key in keys {
             let val = &obj[key];
             let display = match val {
                 serde_json::Value::String(s) => s.clone(),
                 other => other.to_string(),
             };
-            println!("{:<col_width$}  {display}", key);
+            if color {
+                println!("{:<col_width$}  {display}", key.bold());
+            } else {
+                println!("{:<col_width$}  {display}", key);
+            }
         }
     }
 

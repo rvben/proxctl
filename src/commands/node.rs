@@ -282,10 +282,19 @@ async fn list(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
         return Ok(());
     }
 
-    println!(
+    let color = use_color();
+    let header = format!(
         "{:<15}  {:<10}  {:>6}  {:>10}  {:>10}  {:>10}",
         "NODE", "STATUS", "CPUS", "MEMORY", "DISK", "UPTIME"
     );
+    let total_w = 15 + 2 + 10 + 2 + 6 + 2 + 10 + 2 + 10 + 2 + 10;
+    if color {
+        println!("{}", header.bold());
+        println!("{}", "-".repeat(total_w).dimmed());
+    } else {
+        println!("{header}");
+        println!("{}", "-".repeat(total_w));
+    }
 
     for node in &nodes {
         let hours = node.uptime / 3600;
@@ -296,15 +305,27 @@ async fn list(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
             format!("{hours}h")
         };
 
-        println!(
-            "{:<15}  {:<10}  {:>6}  {:>10}  {:>10}  {:>10}",
-            node.node,
-            colorize_status(&node.status),
-            node.maxcpu,
-            format_bytes(node.maxmem),
-            format_bytes(node.maxdisk),
-            uptime_str,
-        );
+        if color {
+            println!(
+                "{:<15}  {:<10}  {:>6}  {:>10}  {:>10}  {:>10}",
+                node.node.as_str().bold(),
+                colorize_status(&node.status),
+                node.maxcpu,
+                format_bytes(node.maxmem),
+                format_bytes(node.maxdisk),
+                uptime_str.as_str().dimmed(),
+            );
+        } else {
+            println!(
+                "{:<15}  {:<10}  {:>6}  {:>10}  {:>10}  {:>10}",
+                node.node,
+                colorize_status(&node.status),
+                node.maxcpu,
+                format_bytes(node.maxmem),
+                format_bytes(node.maxdisk),
+                uptime_str,
+            );
+        }
     }
 
     Ok(())
@@ -470,12 +491,21 @@ async fn services(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Resu
         return Ok(());
     }
 
-    println!("{:<25}  {:<10}  DESCRIPTION", "SERVICE", "STATE");
+    let color = use_color();
+    let header = format!("{:<25}  {:<10}  DESCRIPTION", "SERVICE", "STATE");
+    let total_w = 25 + 2 + 10 + 2 + 11; // "DESCRIPTION" is 11 chars
+    if color {
+        println!("{}", header.bold());
+        println!("{}", "-".repeat(total_w).dimmed());
+    } else {
+        println!("{header}");
+        println!("{}", "-".repeat(total_w));
+    }
     for svc in &data {
         let name = svc.get("service").and_then(|v| v.as_str()).unwrap_or("-");
         let state = svc.get("state").and_then(|v| v.as_str()).unwrap_or("-");
         let desc = svc.get("desc").and_then(|v| v.as_str()).unwrap_or("-");
-        let state_colored = if use_color() {
+        let state_colored = if color {
             match state {
                 "running" => state.green().to_string(),
                 "stopped" => state.red().to_string(),
@@ -484,7 +514,16 @@ async fn services(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Resu
         } else {
             state.to_string()
         };
-        println!("{:<25}  {:<10}  {}", name, state_colored, desc);
+        if color {
+            println!(
+                "{:<25}  {:<10}  {}",
+                name.bold(),
+                state_colored,
+                desc.dimmed()
+            );
+        } else {
+            println!("{:<25}  {:<10}  {}", name, state_colored, desc);
+        }
     }
 
     Ok(())
@@ -520,10 +559,19 @@ async fn network_list(client: &ProxmoxClient, out: OutputConfig, node: &str) -> 
         return Ok(());
     }
 
-    println!(
+    let color = use_color();
+    let header = format!(
         "{:<15}  {:<10}  {:<18}  {:<15}  ACTIVE",
         "IFACE", "TYPE", "ADDRESS", "GATEWAY"
     );
+    let total_w = 15 + 2 + 10 + 2 + 18 + 2 + 15 + 2 + 6; // "ACTIVE" is 6 chars
+    if color {
+        println!("{}", header.bold());
+        println!("{}", "-".repeat(total_w).dimmed());
+    } else {
+        println!("{header}");
+        println!("{}", "-".repeat(total_w));
+    }
     for iface in &data {
         let name = iface.get("iface").and_then(|v| v.as_str()).unwrap_or("-");
         let itype = iface.get("type").and_then(|v| v.as_str()).unwrap_or("-");
@@ -534,10 +582,21 @@ async fn network_list(client: &ProxmoxClient, out: OutputConfig, node: &str) -> 
             .and_then(|v| v.as_u64())
             .map(|v| if v == 1 { "yes" } else { "no" })
             .unwrap_or("-");
-        println!(
-            "{:<15}  {:<10}  {:<18}  {:<15}  {}",
-            name, itype, address, gateway, active
-        );
+        if color {
+            println!(
+                "{:<15}  {:<10}  {:<18}  {:<15}  {}",
+                name.bold(),
+                itype.to_string().dimmed(),
+                address.to_string().dimmed(),
+                gateway.to_string().dimmed(),
+                active
+            );
+        } else {
+            println!(
+                "{:<15}  {:<10}  {:<18}  {:<15}  {}",
+                name, itype, address, gateway, active
+            );
+        }
     }
 
     Ok(())
@@ -587,24 +646,44 @@ async fn disk_list(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Res
         return Ok(());
     }
 
-    println!(
+    let color = use_color();
+    let header = format!(
         "{:<15}  {:>10}  {:<10}  {:<10}  MODEL",
         "DEVICE", "SIZE", "TYPE", "HEALTH"
     );
+    let total_w = 15 + 2 + 10 + 2 + 10 + 2 + 10 + 2 + 5; // "MODEL" is 5 chars
+    if color {
+        println!("{}", header.bold());
+        println!("{}", "-".repeat(total_w).dimmed());
+    } else {
+        println!("{header}");
+        println!("{}", "-".repeat(total_w));
+    }
     for disk in &data {
         let devpath = disk.get("devpath").and_then(|v| v.as_str()).unwrap_or("-");
         let size = disk.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
         let dtype = disk.get("type").and_then(|v| v.as_str()).unwrap_or("-");
         let health = disk.get("health").and_then(|v| v.as_str()).unwrap_or("-");
         let model = disk.get("model").and_then(|v| v.as_str()).unwrap_or("-");
-        println!(
-            "{:<15}  {:>10}  {:<10}  {:<10}  {}",
-            devpath,
-            format_bytes(size),
-            dtype,
-            health,
-            model,
-        );
+        if color {
+            println!(
+                "{:<15}  {:>10}  {:<10}  {:<10}  {}",
+                devpath.bold(),
+                format_bytes(size).dimmed(),
+                dtype.to_string().dimmed(),
+                health,
+                model,
+            );
+        } else {
+            println!(
+                "{:<15}  {:>10}  {:<10}  {:<10}  {}",
+                devpath,
+                format_bytes(size),
+                dtype,
+                health,
+                model,
+            );
+        }
     }
 
     Ok(())
@@ -633,20 +712,40 @@ async fn disk_smart(
 
     if let Some(attrs) = data.get("attributes").and_then(|v| v.as_array()) {
         println!();
-        println!(
+        let color = use_color();
+        let attr_header = format!(
             "{:<5}  {:<25}  {:>6}  {:>6}  {:>10}",
             "ID", "NAME", "VALUE", "WORST", "RAW"
         );
+        let attr_total_w = 5 + 2 + 25 + 2 + 6 + 2 + 6 + 2 + 10;
+        if color {
+            println!("{}", attr_header.bold());
+            println!("{}", "-".repeat(attr_total_w).dimmed());
+        } else {
+            println!("{attr_header}");
+            println!("{}", "-".repeat(attr_total_w));
+        }
         for attr in attrs {
             let id = attr.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
             let name = attr.get("name").and_then(|v| v.as_str()).unwrap_or("-");
             let value = attr.get("value").and_then(|v| v.as_u64()).unwrap_or(0);
             let worst = attr.get("worst").and_then(|v| v.as_u64()).unwrap_or(0);
             let raw = attr.get("raw").and_then(|v| v.as_str()).unwrap_or("-");
-            println!(
-                "{:<5}  {:<25}  {:>6}  {:>6}  {:>10}",
-                id, name, value, worst, raw
-            );
+            if color {
+                println!(
+                    "{:<5}  {:<25}  {:>6}  {:>6}  {:>10}",
+                    id.to_string().dimmed(),
+                    name.bold(),
+                    value,
+                    worst.to_string().dimmed(),
+                    raw.to_string().dimmed(),
+                );
+            } else {
+                println!(
+                    "{:<5}  {:<25}  {:>6}  {:>6}  {:>10}",
+                    id, name, value, worst, raw
+                );
+            }
         }
     }
 
@@ -688,7 +787,16 @@ async fn apt_list(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Resu
         return Ok(());
     }
 
-    println!("{:<30}  {:<20}  {:<20}", "PACKAGE", "CURRENT", "AVAILABLE");
+    let color = use_color();
+    let header = format!("{:<30}  {:<20}  {:<20}", "PACKAGE", "CURRENT", "AVAILABLE");
+    let total_w = 30 + 2 + 20 + 2 + 20;
+    if color {
+        println!("{}", header.bold());
+        println!("{}", "-".repeat(total_w).dimmed());
+    } else {
+        println!("{header}");
+        println!("{}", "-".repeat(total_w));
+    }
     for pkg in &data {
         let name = pkg.get("Package").and_then(|v| v.as_str()).unwrap_or("-");
         let current = pkg
@@ -696,7 +804,16 @@ async fn apt_list(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Resu
             .and_then(|v| v.as_str())
             .unwrap_or("-");
         let available = pkg.get("Version").and_then(|v| v.as_str()).unwrap_or("-");
-        println!("{:<30}  {:<20}  {:<20}", name, current, available);
+        if color {
+            println!(
+                "{:<30}  {:<20}  {:<20}",
+                name.bold(),
+                current.to_string().dimmed(),
+                available
+            );
+        } else {
+            println!("{:<30}  {:<20}  {:<20}", name, current, available);
+        }
     }
 
     Ok(())

@@ -1,9 +1,10 @@
 use clap::Subcommand;
+use owo_colors::OwoColorize;
 use serde_json::json;
 
 use crate::api::Error;
 use crate::api::client::ProxmoxClient;
-use crate::output::OutputConfig;
+use crate::output::{OutputConfig, use_color};
 
 async fn resolve_node<'a>(
     client: &ProxmoxClient,
@@ -214,19 +215,38 @@ async fn osd_list(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Resu
             return Ok(());
         }
 
-        println!(
+        let color = use_color();
+        let osd_header = format!(
             "{:<6}  {:<10}  {:<10}  {:<15}",
             "ID", "STATUS", "TYPE", "HOST"
         );
+        let osd_total_w = 6 + 2 + 10 + 2 + 10 + 2 + 15;
+        if color {
+            println!("{}", osd_header.bold());
+            println!("{}", "-".repeat(osd_total_w).dimmed());
+        } else {
+            println!("{osd_header}");
+            println!("{}", "-".repeat(osd_total_w));
+        }
         for osd in osds {
             let id = osd.get("id").and_then(|v| v.as_u64()).unwrap_or(0);
             let status_val = osd.get("status").and_then(|v| v.as_str()).unwrap_or("-");
             let osd_type = osd.get("type").and_then(|v| v.as_str()).unwrap_or("-");
             let host = osd.get("host").and_then(|v| v.as_str()).unwrap_or("-");
-            println!(
-                "{:<6}  {:<10}  {:<10}  {:<15}",
-                id, status_val, osd_type, host
-            );
+            if color {
+                println!(
+                    "{:<6}  {:<10}  {:<10}  {:<15}",
+                    id.to_string().dimmed(),
+                    status_val,
+                    osd_type.to_string().dimmed(),
+                    host.bold(),
+                );
+            } else {
+                println!(
+                    "{:<6}  {:<10}  {:<10}  {:<15}",
+                    id, status_val, osd_type, host
+                );
+            }
         }
     } else {
         out.print_message("No OSD data available.");
@@ -273,10 +293,19 @@ async fn pool_list(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Res
         return Ok(());
     }
 
-    println!(
+    let color = use_color();
+    let pool_header = format!(
         "{:<20}  {:>6}  {:>6}  {:>10}",
         "POOL", "SIZE", "PG_NUM", "BYTES USED"
     );
+    let pool_total_w = 20 + 2 + 6 + 2 + 6 + 2 + 10;
+    if color {
+        println!("{}", pool_header.bold());
+        println!("{}", "-".repeat(pool_total_w).dimmed());
+    } else {
+        println!("{pool_header}");
+        println!("{}", "-".repeat(pool_total_w));
+    }
     for pool in &data {
         let name = pool
             .get("pool_name")
@@ -287,7 +316,17 @@ async fn pool_list(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Res
         let pg_num = pool.get("pg_num").and_then(|v| v.as_u64()).unwrap_or(0);
         let bytes_used = pool.get("bytes_used").and_then(|v| v.as_u64()).unwrap_or(0);
         let used_str = format_bytes(bytes_used);
-        println!("{:<20}  {:>6}  {:>6}  {:>10}", name, size, pg_num, used_str);
+        if color {
+            println!(
+                "{:<20}  {:>6}  {:>6}  {:>10}",
+                name.bold(),
+                size.to_string().dimmed(),
+                pg_num.to_string().dimmed(),
+                used_str
+            );
+        } else {
+            println!("{:<20}  {:>6}  {:>6}  {:>10}", name, size, pg_num, used_str);
+        }
     }
 
     Ok(())
@@ -351,12 +390,30 @@ async fn mon_list(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Resu
         return Ok(());
     }
 
-    println!("{:<15}  {:<20}  ADDR", "NAME", "HOST");
+    let color = use_color();
+    let mon_header = format!("{:<15}  {:<20}  ADDR", "NAME", "HOST");
+    let mon_total_w = 15 + 2 + 20 + 2 + 4; // "ADDR" is 4 chars
+    if color {
+        println!("{}", mon_header.bold());
+        println!("{}", "-".repeat(mon_total_w).dimmed());
+    } else {
+        println!("{mon_header}");
+        println!("{}", "-".repeat(mon_total_w));
+    }
     for mon in &data {
         let name = mon.get("name").and_then(|v| v.as_str()).unwrap_or("-");
         let host = mon.get("host").and_then(|v| v.as_str()).unwrap_or("-");
         let addr = mon.get("addr").and_then(|v| v.as_str()).unwrap_or("-");
-        println!("{:<15}  {:<20}  {}", name, host, addr);
+        if color {
+            println!(
+                "{:<15}  {:<20}  {}",
+                name.bold(),
+                host.to_string().dimmed(),
+                addr.to_string().dimmed()
+            );
+        } else {
+            println!("{:<15}  {:<20}  {}", name, host, addr);
+        }
     }
 
     Ok(())

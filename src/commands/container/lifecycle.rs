@@ -97,10 +97,19 @@ pub async fn list(
         return Ok(());
     }
 
-    println!(
+    let color = use_color();
+    let header = format!(
         "{:>6}  {:<20}  {:<10}  {:<10}  {:>5}  {:>10}",
         "CTID", "HOSTNAME", "STATUS", "NODE", "CPUS", "MEMORY"
     );
+    let total_w = 6 + 2 + 20 + 2 + 10 + 2 + 10 + 2 + 5 + 2 + 10;
+    if color {
+        println!("{}", header.bold());
+        println!("{}", "-".repeat(total_w).dimmed());
+    } else {
+        println!("{header}");
+        println!("{}", "-".repeat(total_w));
+    }
 
     for ct in &containers {
         let vmid = ct.get("vmid").and_then(|v| v.as_u64()).unwrap_or(0);
@@ -121,15 +130,27 @@ pub async fn list(
             .unwrap_or(0);
         let maxmem = ct.get("maxmem").and_then(|v| v.as_u64()).unwrap_or(0);
 
-        println!(
-            "{:>6}  {:<20}  {:<10}  {:<10}  {:>5}  {:>10}",
-            vmid,
-            name,
-            colorize_status(status),
-            node_name,
-            cpus,
-            format_bytes(maxmem),
-        );
+        if color {
+            println!(
+                "{:>6}  {:<20}  {:<10}  {:<10}  {:>5}  {:>10}",
+                vmid.to_string().dimmed(),
+                name.bold(),
+                colorize_status(status),
+                node_name.to_string().dimmed(),
+                cpus,
+                format_bytes(maxmem),
+            );
+        } else {
+            println!(
+                "{:>6}  {:<20}  {:<10}  {:<10}  {:>5}  {:>10}",
+                vmid,
+                name,
+                colorize_status(status),
+                node_name,
+                cpus,
+                format_bytes(maxmem),
+            );
+        }
     }
 
     Ok(())

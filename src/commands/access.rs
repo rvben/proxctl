@@ -1,9 +1,10 @@
 use clap::Subcommand;
+use owo_colors::OwoColorize;
 use serde_json::json;
 
 use crate::api::Error;
 use crate::api::client::ProxmoxClient;
-use crate::output::OutputConfig;
+use crate::output::{OutputConfig, use_color};
 
 fn confirm_action(action: &str, yes: bool) -> Result<(), Error> {
     if yes {
@@ -185,10 +186,19 @@ async fn users(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
         return Ok(());
     }
 
-    println!(
+    let color = use_color();
+    let header = format!(
         "{:<30}  {:<8}  {:<30}  COMMENT",
         "USERID", "ENABLE", "EMAIL"
     );
+    let total_w = 30 + 2 + 8 + 2 + 30 + 2 + 7; // "COMMENT" is 7 chars
+    if color {
+        println!("{}", header.bold());
+        println!("{}", "-".repeat(total_w).dimmed());
+    } else {
+        println!("{header}");
+        println!("{}", "-".repeat(total_w));
+    }
     for user in &data {
         let userid = user.get("userid").and_then(|v| v.as_str()).unwrap_or("-");
         let enable = user
@@ -198,7 +208,17 @@ async fn users(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
             .unwrap_or("yes");
         let email = user.get("email").and_then(|v| v.as_str()).unwrap_or("-");
         let comment = user.get("comment").and_then(|v| v.as_str()).unwrap_or("");
-        println!("{:<30}  {:<8}  {:<30}  {}", userid, enable, email, comment);
+        if color {
+            println!(
+                "{:<30}  {:<8}  {:<30}  {}",
+                userid.bold(),
+                enable,
+                email.to_string().dimmed(),
+                comment
+            );
+        } else {
+            println!("{:<30}  {:<8}  {:<30}  {}", userid, enable, email, comment);
+        }
     }
 
     Ok(())
@@ -300,11 +320,24 @@ async fn roles(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
         return Ok(());
     }
 
-    println!("{:<20}  PRIVS", "ROLEID");
+    let color = use_color();
+    let roles_header = format!("{:<20}  PRIVS", "ROLEID");
+    let roles_total_w = 20 + 2 + 5; // "PRIVS" is 5 chars
+    if color {
+        println!("{}", roles_header.bold());
+        println!("{}", "-".repeat(roles_total_w).dimmed());
+    } else {
+        println!("{roles_header}");
+        println!("{}", "-".repeat(roles_total_w));
+    }
     for role in &data {
         let roleid = role.get("roleid").and_then(|v| v.as_str()).unwrap_or("-");
         let privs = role.get("privs").and_then(|v| v.as_str()).unwrap_or("-");
-        println!("{:<20}  {}", roleid, privs);
+        if color {
+            println!("{:<20}  {}", roleid.bold(), privs.to_string().dimmed());
+        } else {
+            println!("{:<20}  {}", roleid, privs);
+        }
     }
 
     Ok(())
@@ -323,10 +356,19 @@ async fn acl(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
         return Ok(());
     }
 
-    println!(
+    let color = use_color();
+    let acl_header = format!(
         "{:<30}  {:<25}  {:<20}  PROPAGATE",
         "PATH", "UGID", "ROLEID"
     );
+    let acl_total_w = 30 + 2 + 25 + 2 + 20 + 2 + 9; // "PROPAGATE" is 9 chars
+    if color {
+        println!("{}", acl_header.bold());
+        println!("{}", "-".repeat(acl_total_w).dimmed());
+    } else {
+        println!("{acl_header}");
+        println!("{}", "-".repeat(acl_total_w));
+    }
     for entry in &data {
         let path = entry.get("path").and_then(|v| v.as_str()).unwrap_or("-");
         let ugid = entry.get("ugid").and_then(|v| v.as_str()).unwrap_or("-");
@@ -336,7 +378,17 @@ async fn acl(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
             .and_then(|v| v.as_u64())
             .map(|v| if v == 1 { "yes" } else { "no" })
             .unwrap_or("-");
-        println!("{:<30}  {:<25}  {:<20}  {}", path, ugid, roleid, propagate);
+        if color {
+            println!(
+                "{:<30}  {:<25}  {:<20}  {}",
+                path.to_string().dimmed(),
+                ugid.bold(),
+                roleid.to_string().dimmed(),
+                propagate
+            );
+        } else {
+            println!("{:<30}  {:<25}  {:<20}  {}", path, ugid, roleid, propagate);
+        }
     }
 
     Ok(())
@@ -356,7 +408,16 @@ async fn token_list(client: &ProxmoxClient, out: OutputConfig, userid: &str) -> 
         return Ok(());
     }
 
-    println!("{:<20}  {:<8}  COMMENT", "TOKENID", "PRIVSEP");
+    let color = use_color();
+    let tok_header = format!("{:<20}  {:<8}  COMMENT", "TOKENID", "PRIVSEP");
+    let tok_total_w = 20 + 2 + 8 + 2 + 7; // "COMMENT" is 7 chars
+    if color {
+        println!("{}", tok_header.bold());
+        println!("{}", "-".repeat(tok_total_w).dimmed());
+    } else {
+        println!("{tok_header}");
+        println!("{}", "-".repeat(tok_total_w));
+    }
     for token in &data {
         let tokenid = token.get("tokenid").and_then(|v| v.as_str()).unwrap_or("-");
         let privsep = token
@@ -365,7 +426,16 @@ async fn token_list(client: &ProxmoxClient, out: OutputConfig, userid: &str) -> 
             .map(|v| if v == 1 { "yes" } else { "no" })
             .unwrap_or("-");
         let comment = token.get("comment").and_then(|v| v.as_str()).unwrap_or("");
-        println!("{:<20}  {:<8}  {}", tokenid, privsep, comment);
+        if color {
+            println!(
+                "{:<20}  {:<8}  {}",
+                tokenid.bold(),
+                privsep.to_string().dimmed(),
+                comment
+            );
+        } else {
+            println!("{:<20}  {:<8}  {}", tokenid, privsep, comment);
+        }
     }
 
     Ok(())

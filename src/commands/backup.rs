@@ -1,9 +1,10 @@
 use clap::Subcommand;
+use owo_colors::OwoColorize;
 use serde_json::json;
 
 use crate::api::Error;
 use crate::api::client::ProxmoxClient;
-use crate::output::OutputConfig;
+use crate::output::{OutputConfig, use_color};
 
 fn require_node<'a>(node: Option<&'a str>, global_node: Option<&'a str>) -> Result<&'a str, Error> {
     node.or(global_node)
@@ -262,7 +263,16 @@ async fn list(
         return Ok(());
     }
 
-    println!("{:<50}  {:>6}  {:>10}", "VOLID", "VMID", "SIZE");
+    let color = use_color();
+    let header = format!("{:<50}  {:>6}  {:>10}", "VOLID", "VMID", "SIZE");
+    let total_w = 50 + 2 + 6 + 2 + 10;
+    if color {
+        println!("{}", header.bold());
+        println!("{}", "-".repeat(total_w).dimmed());
+    } else {
+        println!("{header}");
+        println!("{}", "-".repeat(total_w));
+    }
     for b in &all_backups {
         let volid = b.get("volid").and_then(|v| v.as_str()).unwrap_or("-");
         let vmid = b
@@ -271,7 +281,16 @@ async fn list(
             .map(|n| n.to_string())
             .unwrap_or_else(|| "-".to_string());
         let size = b.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
-        println!("{:<50}  {:>6}  {:>10}", volid, vmid, format_bytes(size));
+        if color {
+            println!(
+                "{:<50}  {:>6}  {:>10}",
+                volid.bold(),
+                vmid.as_str().dimmed(),
+                format_bytes(size)
+            );
+        } else {
+            println!("{:<50}  {:>6}  {:>10}", volid, vmid, format_bytes(size));
+        }
     }
 
     Ok(())
@@ -367,20 +386,40 @@ async fn schedule_list(client: &ProxmoxClient, out: OutputConfig) -> Result<(), 
         return Ok(());
     }
 
-    println!(
+    let color = use_color();
+    let sched_header = format!(
         "{:<8}  {:<20}  {:<15}  {:<10}  VMID",
         "ID", "SCHEDULE", "STORAGE", "MODE"
     );
+    let sched_total_w = 8 + 2 + 20 + 2 + 15 + 2 + 10 + 2 + 4; // "VMID" is 4 chars
+    if color {
+        println!("{}", sched_header.bold());
+        println!("{}", "-".repeat(sched_total_w).dimmed());
+    } else {
+        println!("{sched_header}");
+        println!("{}", "-".repeat(sched_total_w));
+    }
     for job in &data {
         let id = job.get("id").and_then(|v| v.as_str()).unwrap_or("-");
         let schedule = job.get("schedule").and_then(|v| v.as_str()).unwrap_or("-");
         let storage_name = job.get("storage").and_then(|v| v.as_str()).unwrap_or("-");
         let mode = job.get("mode").and_then(|v| v.as_str()).unwrap_or("-");
         let vmid = job.get("vmid").and_then(|v| v.as_str()).unwrap_or("all");
-        println!(
-            "{:<8}  {:<20}  {:<15}  {:<10}  {}",
-            id, schedule, storage_name, mode, vmid
-        );
+        if color {
+            println!(
+                "{:<8}  {:<20}  {:<15}  {:<10}  {}",
+                id.to_string().dimmed(),
+                schedule.bold(),
+                storage_name.to_string().dimmed(),
+                mode,
+                vmid.to_string().dimmed()
+            );
+        } else {
+            println!(
+                "{:<8}  {:<20}  {:<15}  {:<10}  {}",
+                id, schedule, storage_name, mode, vmid
+            );
+        }
     }
 
     Ok(())

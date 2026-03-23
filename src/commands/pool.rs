@@ -1,9 +1,10 @@
 use clap::Subcommand;
+use owo_colors::OwoColorize;
 use serde_json::json;
 
 use crate::api::Error;
 use crate::api::client::ProxmoxClient;
-use crate::output::OutputConfig;
+use crate::output::{OutputConfig, use_color};
 
 fn confirm_action(action: &str, yes: bool) -> Result<(), Error> {
     if yes {
@@ -107,11 +108,24 @@ async fn list(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
         return Ok(());
     }
 
-    println!("{:<20}  COMMENT", "POOLID");
+    let color = use_color();
+    let header = format!("{:<20}  COMMENT", "POOLID");
+    let total_w = 20 + 2 + 7; // "COMMENT" is 7 chars
+    if color {
+        println!("{}", header.bold());
+        println!("{}", "-".repeat(total_w).dimmed());
+    } else {
+        println!("{header}");
+        println!("{}", "-".repeat(total_w));
+    }
     for pool in &data {
         let poolid = pool.get("poolid").and_then(|v| v.as_str()).unwrap_or("-");
         let comment = pool.get("comment").and_then(|v| v.as_str()).unwrap_or("");
-        println!("{:<20}  {}", poolid, comment);
+        if color {
+            println!("{:<20}  {}", poolid.bold(), comment);
+        } else {
+            println!("{:<20}  {}", poolid, comment);
+        }
     }
 
     Ok(())

@@ -1,9 +1,10 @@
 use clap::Subcommand;
+use owo_colors::OwoColorize;
 use serde_json::json;
 
 use crate::api::Error;
 use crate::api::client::ProxmoxClient;
-use crate::output::OutputConfig;
+use crate::output::{OutputConfig, use_color};
 
 fn require_node<'a>(node: Option<&'a str>, global_node: Option<&'a str>) -> Result<&'a str, Error> {
     node.or(global_node)
@@ -259,10 +260,19 @@ async fn list(
         return Ok(());
     }
 
-    println!(
+    let color = use_color();
+    let header = format!(
         "{:<20}  {:<10}  {:<30}  {:<10}",
         "STORAGE", "TYPE", "CONTENT", "SHARED"
     );
+    let total_w = 20 + 2 + 10 + 2 + 30 + 2 + 10;
+    if color {
+        println!("{}", header.bold());
+        println!("{}", "-".repeat(total_w).dimmed());
+    } else {
+        println!("{header}");
+        println!("{}", "-".repeat(total_w));
+    }
     for s in &data {
         let name = s.get("storage").and_then(|v| v.as_str()).unwrap_or("-");
         let stype = s.get("type").and_then(|v| v.as_str()).unwrap_or("-");
@@ -272,10 +282,20 @@ async fn list(
             .and_then(|v| v.as_u64())
             .map(|v| if v == 1 { "yes" } else { "no" })
             .unwrap_or("-");
-        println!(
-            "{:<20}  {:<10}  {:<30}  {:<10}",
-            name, stype, content, shared
-        );
+        if color {
+            println!(
+                "{:<20}  {:<10}  {:<30}  {:<10}",
+                name.bold(),
+                stype.to_string().dimmed(),
+                content.to_string().dimmed(),
+                shared
+            );
+        } else {
+            println!(
+                "{:<20}  {:<10}  {:<30}  {:<10}",
+                name, stype, content, shared
+            );
+        }
     }
 
     Ok(())
@@ -339,12 +359,30 @@ async fn list_content(
         return Ok(());
     }
 
-    println!("{:<50}  {:<10}  {:>10}", "VOLID", "FORMAT", "SIZE");
+    let color = use_color();
+    let content_header = format!("{:<50}  {:<10}  {:>10}", "VOLID", "FORMAT", "SIZE");
+    let content_total_w = 50 + 2 + 10 + 2 + 10;
+    if color {
+        println!("{}", content_header.bold());
+        println!("{}", "-".repeat(content_total_w).dimmed());
+    } else {
+        println!("{content_header}");
+        println!("{}", "-".repeat(content_total_w));
+    }
     for item in &data {
         let volid = item.get("volid").and_then(|v| v.as_str()).unwrap_or("-");
         let format = item.get("format").and_then(|v| v.as_str()).unwrap_or("-");
         let size = item.get("size").and_then(|v| v.as_u64()).unwrap_or(0);
-        println!("{:<50}  {:<10}  {:>10}", volid, format, format_bytes(size));
+        if color {
+            println!(
+                "{:<50}  {:<10}  {:>10}",
+                volid.bold(),
+                format.to_string().dimmed(),
+                format_bytes(size)
+            );
+        } else {
+            println!("{:<50}  {:<10}  {:>10}", volid, format, format_bytes(size));
+        }
     }
 
     Ok(())

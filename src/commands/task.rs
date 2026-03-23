@@ -1,9 +1,10 @@
 use clap::Subcommand;
+use owo_colors::OwoColorize;
 use serde_json::json;
 
 use crate::api::Error;
 use crate::api::client::{ProxmoxClient, parse_upid_node};
-use crate::output::OutputConfig;
+use crate::output::{OutputConfig, use_color};
 
 #[derive(Subcommand)]
 pub enum TaskCommand {
@@ -137,20 +138,40 @@ async fn list(
         return Ok(());
     }
 
-    println!(
+    let color = use_color();
+    let header = format!(
         "{:<10}  {:<10}  {:<15}  {:<10}  {:<20}",
         "NODE", "TYPE", "ID", "STATUS", "USER"
     );
+    let total_w = 10 + 2 + 10 + 2 + 15 + 2 + 10 + 2 + 20;
+    if color {
+        println!("{}", header.bold());
+        println!("{}", "-".repeat(total_w).dimmed());
+    } else {
+        println!("{header}");
+        println!("{}", "-".repeat(total_w));
+    }
     for task in &data {
         let node_name = task.get("node").and_then(|v| v.as_str()).unwrap_or("-");
         let task_type = task.get("type").and_then(|v| v.as_str()).unwrap_or("-");
         let id = task.get("id").and_then(|v| v.as_str()).unwrap_or("-");
         let status_str = task.get("status").and_then(|v| v.as_str()).unwrap_or("-");
         let user = task.get("user").and_then(|v| v.as_str()).unwrap_or("-");
-        println!(
-            "{:<10}  {:<10}  {:<15}  {:<10}  {:<20}",
-            node_name, task_type, id, status_str, user,
-        );
+        if color {
+            println!(
+                "{:<10}  {:<10}  {:<15}  {:<10}  {:<20}",
+                node_name.to_string().dimmed(),
+                task_type.bold(),
+                id.to_string().dimmed(),
+                status_str,
+                user.to_string().dimmed(),
+            );
+        } else {
+            println!(
+                "{:<10}  {:<10}  {:<15}  {:<10}  {:<20}",
+                node_name, task_type, id, status_str, user,
+            );
+        }
     }
 
     Ok(())

@@ -1,10 +1,11 @@
 use std::io::IsTerminal;
 
+use owo_colors::OwoColorize;
 use serde_json::json;
 
 use crate::api::Error;
 use crate::api::client::ProxmoxClient;
-use crate::output::OutputConfig;
+use crate::output::{OutputConfig, use_color};
 
 pub async fn list(
     client: &ProxmoxClient,
@@ -26,7 +27,16 @@ pub async fn list(
         return Ok(());
     }
 
-    println!("{:<20}  {:<20}  DESCRIPTION", "NAME", "DATE");
+    let color = use_color();
+    let header = format!("{:<20}  {:<20}  DESCRIPTION", "NAME", "DATE");
+    let total_w = 20 + 2 + 20 + 2 + 11; // "DESCRIPTION" is 11 chars
+    if color {
+        println!("{}", header.bold());
+        println!("{}", "-".repeat(total_w).dimmed());
+    } else {
+        println!("{header}");
+        println!("{}", "-".repeat(total_w));
+    }
     for snap in &snapshots {
         let name = snap.get("name").and_then(|v| v.as_str()).unwrap_or("-");
         let desc = snap
@@ -35,7 +45,15 @@ pub async fn list(
             .unwrap_or("");
         let snaptime = snap.get("snaptime").and_then(|v| v.as_u64()).unwrap_or(0);
         let date = format_epoch(snaptime);
-        println!("{:<20}  {:<20}  {desc}", name, date);
+        if color {
+            println!(
+                "{:<20}  {:<20}  {desc}",
+                name.bold(),
+                date.to_string().dimmed()
+            );
+        } else {
+            println!("{:<20}  {:<20}  {desc}", name, date);
+        }
     }
 
     Ok(())
