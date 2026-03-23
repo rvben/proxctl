@@ -8,6 +8,8 @@ use serde_json::json;
 use proxmox_cli::api::client::ProxmoxClient;
 use proxmox_cli::api::error::exit_codes;
 use proxmox_cli::api::token::ApiToken;
+use proxmox_cli::commands::container::ContainerCommand;
+use proxmox_cli::commands::node::NodeCommand;
 use proxmox_cli::commands::vm::VmCommand;
 use proxmox_cli::output::OutputConfig;
 
@@ -127,28 +129,6 @@ enum Command {
 }
 
 // ── Subcommand Enums (stubs) ────────────────────────────────────────
-
-#[derive(Subcommand)]
-enum ContainerCommand {
-    /// List all containers
-    List,
-    /// Show container status
-    Status {
-        /// Container ID
-        vmid: u32,
-    },
-}
-
-#[derive(Subcommand)]
-enum NodeCommand {
-    /// List all nodes
-    List,
-    /// Show node status
-    Status {
-        /// Node name
-        name: String,
-    },
-}
 
 #[derive(Subcommand)]
 enum TaskCommand {
@@ -827,8 +807,12 @@ async fn main() {
         Command::Vm(cmd) => {
             proxmox_cli::commands::vm::run(&client, output, cmd, cli.node.as_deref()).await
         }
-        Command::Container(_) => not_yet_implemented("container"),
-        Command::Node(_) => not_yet_implemented("node"),
+        Command::Container(cmd) => {
+            proxmox_cli::commands::container::run(&client, output, cmd, cli.node.as_deref()).await
+        }
+        Command::Node(cmd) => {
+            proxmox_cli::commands::node::run(&client, output, cmd, cli.node.as_deref()).await
+        }
         Command::Task(_) => not_yet_implemented("task"),
         Command::Storage(_) => not_yet_implemented("storage"),
         Command::Backup(_) => not_yet_implemented("backup"),
@@ -895,7 +879,7 @@ mod tests {
         let cli = Cli::try_parse_from(["proxmox", "ct", "list"]).unwrap();
         assert!(matches!(
             cli.command,
-            Command::Container(ContainerCommand::List)
+            Command::Container(ContainerCommand::List { .. })
         ));
     }
 
