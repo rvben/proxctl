@@ -11,6 +11,7 @@ use proxmox_cli::api::token::ApiToken;
 use proxmox_cli::commands::backup::BackupCommand;
 use proxmox_cli::commands::cluster::ClusterCommand;
 use proxmox_cli::commands::container::ContainerCommand;
+use proxmox_cli::commands::firewall::FirewallCommand;
 use proxmox_cli::commands::node::NodeCommand;
 use proxmox_cli::commands::storage::StorageCommand;
 use proxmox_cli::commands::task::TaskCommand;
@@ -133,12 +134,6 @@ enum Command {
 }
 
 // ── Subcommand Enums (stubs) ────────────────────────────────────────
-
-#[derive(Subcommand)]
-enum FirewallCommand {
-    /// List firewall rules
-    List,
-}
 
 #[derive(Subcommand)]
 enum AccessCommand {
@@ -805,7 +800,9 @@ async fn main() {
         Command::Cluster(cmd) => {
             proxmox_cli::commands::cluster::run(&client, output, cmd, cli.node.as_deref()).await
         }
-        Command::Firewall(_) => not_yet_implemented("firewall"),
+        Command::Firewall(cmd) => {
+            proxmox_cli::commands::firewall::run(&client, output, cmd, cli.node.as_deref()).await
+        }
         Command::Access(_) => not_yet_implemented("access"),
         Command::Pool(_) => not_yet_implemented("pool"),
         Command::Ceph(_) => not_yet_implemented("ceph"),
