@@ -114,6 +114,23 @@ impl ProxmoxClient {
         Ok(envelope.data)
     }
 
+    /// Sends a multipart form upload and returns the UPID string.
+    pub async fn upload(
+        &self,
+        path: &str,
+        form: reqwest::multipart::Form,
+    ) -> Result<String, Error> {
+        let url = self.api_url(path);
+        let resp = self.client.post(&url).multipart(form).send().await?;
+        let status = resp.status();
+        if !status.is_success() {
+            let body = resp.text().await.unwrap_or_default();
+            return Err(Error::from_status(status.as_u16(), body));
+        }
+        let envelope: ApiResponse<String> = resp.json().await?;
+        Ok(envelope.data)
+    }
+
     // ── Raw request for API passthrough ─────────────────────────────
 
     /// Sends a raw request and returns the response as a JSON value.

@@ -56,7 +56,7 @@ pub enum StorageCommand {
         #[arg(long)]
         content: Option<String>,
     },
-    /// Upload a file to storage (not yet implemented)
+    /// Upload a file to storage
     Upload {
         /// Storage name
         storage: String,
@@ -66,8 +66,8 @@ pub enum StorageCommand {
         #[arg(long)]
         node: Option<String>,
         /// Content type (iso, vztmpl)
-        #[arg(long)]
-        content_type: Option<String>,
+        #[arg(long, default_value = "iso")]
+        content_type: String,
     },
     /// Download a file from URL to storage
     Download {
@@ -162,9 +162,14 @@ pub async fn run(
             let n = require_node(node.as_deref(), global_node)?;
             list_content(client, out, n, &storage, content.as_deref()).await
         }
-        StorageCommand::Upload { .. } => {
-            eprintln!("Upload not yet implemented — use the web UI or `proxctl api post`");
-            Ok(())
+        StorageCommand::Upload {
+            storage,
+            file,
+            node,
+            content_type,
+        } => {
+            let n = require_node(node.as_deref(), global_node)?;
+            upload(client, out, n, &storage, &file, &content_type).await
         }
         StorageCommand::Download {
             storage,
@@ -451,6 +456,45 @@ async fn update(
     out.print_result(
         &json!({"status": "updated", "storage": storage}),
         &format!("Storage {storage} updated"),
+    );
+    Ok(())
+}
+
+async fn upload(
+    client: &ProxmoxClient,
+    out: OutputConfig,
+    node: &str,
+    storage: &str,
+    file_path: &str,
+    content_type: &str,
+) -> Result<(), Error> {
+    let path = std::path::Path::new(file_path);
+    let file_bytes = std::fs::read(path)
+        .map_err(|e| Error::Other(format!("failed to read file {file_path}: {e}")))?;
+    let file_name = path
+        .file_name()
+        .ok_or_else(|| Error::Config("file path has no filename".to_string()))?
+        .to_string_lossy()
+        .to_string();
+
+    let part = reqwest::multipart::Part::bytes(file_bytes)
+        .file_name(file_name.clone())
+        .mime_str("application/octet-stream")
+        .map_err(|e| Error::Other(format!("invalid mime type: {e}")))?;
+
+    let form = reqwest::multipart::Form::new()
+        .text("content", content_type.to_string())
+        .part("filename", part);
+
+    let api_path = format!("/nodes/{node}/storage/{storage}/upload");
+    let upid = client.upload(&api_path, form).await?;
+    let _status = client
+        .wait_for_task(&upid, node, 600, out.should_show_spinner())
+        .await?;
+
+    out.print_result(
+        &json!({"status": "uploaded", "storage": storage, "filename": file_name, "upid": upid}),
+        &format!("Uploaded {file_name} to {storage}"),
     );
     Ok(())
 }
