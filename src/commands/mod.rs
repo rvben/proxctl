@@ -5,6 +5,7 @@ pub mod cluster;
 pub mod container;
 pub mod firewall;
 pub mod node;
+pub mod pool;
 pub mod storage;
 pub mod task;
 pub mod vm;

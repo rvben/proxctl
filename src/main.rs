@@ -14,6 +14,7 @@ use proxmox_cli::commands::cluster::ClusterCommand;
 use proxmox_cli::commands::container::ContainerCommand;
 use proxmox_cli::commands::firewall::FirewallCommand;
 use proxmox_cli::commands::node::NodeCommand;
+use proxmox_cli::commands::pool::PoolCommand;
 use proxmox_cli::commands::storage::StorageCommand;
 use proxmox_cli::commands::task::TaskCommand;
 use proxmox_cli::commands::vm::VmCommand;
@@ -135,12 +136,6 @@ enum Command {
 }
 
 // ── Subcommand Enums (stubs) ────────────────────────────────────────
-
-#[derive(Subcommand)]
-enum PoolCommand {
-    /// List resource pools
-    List,
-}
 
 #[derive(Subcommand)]
 enum CephCommand {
@@ -801,7 +796,9 @@ async fn main() {
         Command::Access(cmd) => {
             proxmox_cli::commands::access::run(&client, output, cmd, cli.node.as_deref()).await
         }
-        Command::Pool(_) => not_yet_implemented("pool"),
+        Command::Pool(cmd) => {
+            proxmox_cli::commands::pool::run(&client, output, cmd, cli.node.as_deref()).await
+        }
         Command::Ceph(_) => not_yet_implemented("ceph"),
 
         // Already handled above
