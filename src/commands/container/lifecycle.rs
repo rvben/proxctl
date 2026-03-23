@@ -18,14 +18,15 @@ fn format_bytes(bytes: u64) -> String {
 }
 
 /// Colorize a container status string for terminal output.
-fn colorize_status(status: &str) -> String {
+fn colorize_status(status: &str, width: usize) -> String {
+    let padded = format!("{:<width$}", status);
     if !use_color() {
-        return status.to_string();
+        return padded;
     }
     match status {
-        "running" => status.green().to_string(),
-        "stopped" => status.red().to_string(),
-        _ => status.yellow().to_string(),
+        "running" => padded.green().to_string(),
+        "stopped" => padded.red().to_string(),
+        _ => padded.yellow().to_string(),
     }
 }
 
@@ -132,20 +133,20 @@ pub async fn list(
 
         if color {
             println!(
-                "{:>6}  {:<20}  {:<10}  {:<10}  {:>5}  {:>10}",
+                "{:>6}  {:<20}  {}  {:<10}  {:>5}  {:>10}",
                 vmid.to_string().dimmed(),
                 name.bold(),
-                colorize_status(status),
+                colorize_status(status, 10),
                 node_name.to_string().dimmed(),
                 cpus,
                 format_bytes(maxmem),
             );
         } else {
             println!(
-                "{:>6}  {:<20}  {:<10}  {:<10}  {:>5}  {:>10}",
+                "{:>6}  {:<20}  {}  {:<10}  {:>5}  {:>10}",
                 vmid,
                 name,
-                colorize_status(status),
+                colorize_status(status, 10),
                 node_name,
                 cpus,
                 format_bytes(maxmem),
@@ -185,7 +186,7 @@ pub async fn status(
     let uptime = data.get("uptime").and_then(|v| v.as_u64()).unwrap_or(0);
 
     println!("Container {vmid} ({name})");
-    println!("  Status:  {}", colorize_status(status));
+    println!("  Status:  {}", colorize_status(status, 0));
     println!("  Node:    {node}");
     println!("  CPUs:    {cpus}");
     println!("  Memory:  {}", format_bytes(maxmem));

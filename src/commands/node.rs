@@ -177,14 +177,15 @@ fn format_bytes(bytes: u64) -> String {
     }
 }
 
-fn colorize_status(status: &str) -> String {
+fn colorize_status(status: &str, width: usize) -> String {
+    let padded = format!("{:<width$}", status);
     if !use_color() {
-        return status.to_string();
+        return padded;
     }
     match status {
-        "online" => status.green().to_string(),
-        "offline" => status.red().to_string(),
-        _ => status.yellow().to_string(),
+        "online" => padded.green().to_string(),
+        "offline" => padded.red().to_string(),
+        _ => padded.yellow().to_string(),
     }
 }
 
@@ -307,9 +308,9 @@ async fn list(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
 
         if color {
             println!(
-                "{:<15}  {:<10}  {:>6}  {:>10}  {:>10}  {:>10}",
+                "{:<15}  {}  {:>6}  {:>10}  {:>10}  {:>10}",
                 node.node.as_str().bold(),
-                colorize_status(&node.status),
+                colorize_status(&node.status, 10),
                 node.maxcpu,
                 format_bytes(node.maxmem),
                 format_bytes(node.maxdisk),
@@ -317,9 +318,9 @@ async fn list(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
             );
         } else {
             println!(
-                "{:<15}  {:<10}  {:>6}  {:>10}  {:>10}  {:>10}",
+                "{:<15}  {}  {:>6}  {:>10}  {:>10}  {:>10}",
                 node.node,
-                colorize_status(&node.status),
+                colorize_status(&node.status, 10),
                 node.maxcpu,
                 format_bytes(node.maxmem),
                 format_bytes(node.maxdisk),
