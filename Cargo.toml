@@ -9,6 +9,7 @@ repository = "https://github.com/rvben/proxmox-cli"
 homepage = "https://github.com/rvben/proxmox-cli"
 keywords = ["proxmox", "virtualization", "cli", "kvm", "lxc"]
 categories = ["command-line-utilities"]
+default-run = "proxmox"
 
 [[bin]]
 name = "proxmox"

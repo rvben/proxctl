@@ -20,30 +20,47 @@ impl FromStr for ApiToken {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // Split on '=' to separate secret
         let (token_part, secret) = s.split_once('=').ok_or_else(|| {
-            Error::Config("invalid token format: missing '=' separator (expected user@realm!tokenid=secret)".to_string())
+            Error::Config(
+                "invalid token format: missing '=' separator (expected user@realm!tokenid=secret)"
+                    .to_string(),
+            )
         })?;
 
         // Split token_part on '!' to get user@realm and token_id
         let (user_realm, token_id) = token_part.split_once('!').ok_or_else(|| {
-            Error::Config("invalid token format: missing '!' separator (expected user@realm!tokenid=secret)".to_string())
+            Error::Config(
+                "invalid token format: missing '!' separator (expected user@realm!tokenid=secret)"
+                    .to_string(),
+            )
         })?;
 
         // Split user_realm on '@' to separate user and realm
         let (user, realm) = user_realm.split_once('@').ok_or_else(|| {
-            Error::Config("invalid token format: missing '@' separator (expected user@realm!tokenid=secret)".to_string())
+            Error::Config(
+                "invalid token format: missing '@' separator (expected user@realm!tokenid=secret)"
+                    .to_string(),
+            )
         })?;
 
         if user.is_empty() {
-            return Err(Error::Config("invalid token: user must not be empty".to_string()));
+            return Err(Error::Config(
+                "invalid token: user must not be empty".to_string(),
+            ));
         }
         if realm.is_empty() {
-            return Err(Error::Config("invalid token: realm must not be empty".to_string()));
+            return Err(Error::Config(
+                "invalid token: realm must not be empty".to_string(),
+            ));
         }
         if token_id.is_empty() {
-            return Err(Error::Config("invalid token: token_id must not be empty".to_string()));
+            return Err(Error::Config(
+                "invalid token: token_id must not be empty".to_string(),
+            ));
         }
         if secret.is_empty() {
-            return Err(Error::Config("invalid token: secret must not be empty".to_string()));
+            return Err(Error::Config(
+                "invalid token: secret must not be empty".to_string(),
+            ));
         }
 
         Ok(ApiToken {
@@ -172,10 +189,7 @@ mod tests {
     #[test]
     fn test_auth_header_format() {
         let token: ApiToken = "root@pam!mytoken=abc123".parse().unwrap();
-        assert_eq!(
-            token.auth_header(),
-            "PVEAPIToken=root@pam!mytoken=abc123"
-        );
+        assert_eq!(token.auth_header(), "PVEAPIToken=root@pam!mytoken=abc123");
     }
 
     #[test]

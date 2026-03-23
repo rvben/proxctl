@@ -8,9 +8,7 @@ use tokio::sync::OnceCell;
 
 use super::Error;
 use super::token::ApiToken;
-use super::types::{
-    ApiResponse, ClusterResource, NodeStatus, TaskStatus, VersionInfo,
-};
+use super::types::{ApiResponse, ClusterResource, NodeStatus, TaskStatus, VersionInfo};
 
 /// Result of executing a task via the Proxmox API.
 #[derive(Debug)]
@@ -36,9 +34,10 @@ impl ProxmoxClient {
                 let mut headers = reqwest::header::HeaderMap::new();
                 headers.insert(
                     reqwest::header::AUTHORIZATION,
-                    token.auth_header().parse().map_err(|e| {
-                        Error::Config(format!("invalid auth header: {e}"))
-                    })?,
+                    token
+                        .auth_header()
+                        .parse()
+                        .map_err(|e| Error::Config(format!("invalid auth header: {e}")))?,
                 );
                 headers
             })
@@ -164,10 +163,7 @@ impl ProxmoxClient {
         if raw_response {
             Ok(json)
         } else {
-            Ok(json
-                .get("data")
-                .cloned()
-                .unwrap_or(serde_json::Value::Null))
+            Ok(json.get("data").cloned().unwrap_or(serde_json::Value::Null))
         }
     }
 
@@ -244,10 +240,7 @@ impl ProxmoxClient {
                     pb.finish_and_clear();
                 }
                 if status.is_failed() {
-                    let detail = status
-                        .exitstatus
-                        .as_deref()
-                        .unwrap_or("unknown error");
+                    let detail = status.exitstatus.as_deref().unwrap_or("unknown error");
                     return Err(Error::TaskFailed(detail.to_string()));
                 }
                 return Ok(status);
@@ -286,10 +279,7 @@ impl ProxmoxClient {
                 status: Some(status),
             })
         } else {
-            Ok(TaskResult {
-                upid,
-                status: None,
-            })
+            Ok(TaskResult { upid, status: None })
         }
     }
 

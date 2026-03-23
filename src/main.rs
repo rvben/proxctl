@@ -332,23 +332,21 @@ async fn run_api_command(
             } else {
                 format!("{}?{}", path, query.join("&"))
             };
-            let result = client.raw_request("GET", &full_path, None, *raw_response).await?;
+            let result = client
+                .raw_request("GET", &full_path, None, *raw_response)
+                .await?;
             output.print_data(&serde_json::to_string_pretty(&result).expect("serialize"));
         }
         ApiCommand::Post { path, data } => {
             let params = parse_data_params(data);
             let body: Vec<(&str, &str)> = params;
-            let result = client
-                .raw_request("POST", path, Some(&body), false)
-                .await?;
+            let result = client.raw_request("POST", path, Some(&body), false).await?;
             output.print_data(&serde_json::to_string_pretty(&result).expect("serialize"));
         }
         ApiCommand::Put { path, data } => {
             let params = parse_data_params(data);
             let body: Vec<(&str, &str)> = params;
-            let result = client
-                .raw_request("PUT", path, Some(&body), false)
-                .await?;
+            let result = client.raw_request("PUT", path, Some(&body), false).await?;
             output.print_data(&serde_json::to_string_pretty(&result).expect("serialize"));
         }
         ApiCommand::Delete { path } => {
@@ -534,7 +532,11 @@ fn resolve_profile_value(table: &toml::Table, profile: &str, key: &str) -> Optio
 ///
 /// Proxmox returns `{ "data": { "value": "<secret>", ... } }`.
 /// The token string format is `user@realm!tokenid=secret`.
-fn format_token_string(username: &str, token_id: &str, response: &serde_json::Value) -> Result<String, Error> {
+fn format_token_string(
+    username: &str,
+    token_id: &str,
+    response: &serde_json::Value,
+) -> Result<String, Error> {
     let secret = response
         .get("data")
         .and_then(|d| d.get("value"))
@@ -667,10 +669,7 @@ async fn run_config_init() -> Result<(), Error> {
         )));
     }
 
-    let ticket_json: serde_json::Value = ticket_resp
-        .json()
-        .await
-        .map_err(Error::Http)?;
+    let ticket_json: serde_json::Value = ticket_resp.json().await.map_err(Error::Http)?;
 
     let ticket = ticket_json
         .get("data")
@@ -762,10 +761,7 @@ async fn run_config_init() -> Result<(), Error> {
         insecure,
     )?;
 
-    println!(
-        "Config saved to {}",
-        config_path.display()
-    );
+    println!("Config saved to {}", config_path.display());
     println!("Run `proxmox health` to verify connectivity.");
 
     Ok(())
@@ -808,7 +804,9 @@ async fn main() {
     });
 
     let token_str = cli.token.or(cfg_token).unwrap_or_else(|| {
-        eprintln!("Error: no token configured. Set --token, PROXMOX_TOKEN, or configure a profile.");
+        eprintln!(
+            "Error: no token configured. Set --token, PROXMOX_TOKEN, or configure a profile."
+        );
         process::exit(exit_codes::CONFIG_ERROR);
     });
 
@@ -904,7 +902,10 @@ mod tests {
     #[test]
     fn cli_container_alias_ct() {
         let cli = Cli::try_parse_from(["proxmox", "ct", "list"]).unwrap();
-        assert!(matches!(cli.command, Command::Container(ContainerCommand::List)));
+        assert!(matches!(
+            cli.command,
+            Command::Container(ContainerCommand::List)
+        ));
     }
 
     #[test]
@@ -979,25 +980,18 @@ mod tests {
     #[test]
     fn cli_config_init() {
         let cli = Cli::try_parse_from(["proxmox", "config", "init"]).unwrap();
-        assert!(matches!(
-            cli.command,
-            Command::Config(ConfigCommand::Init)
-        ));
+        assert!(matches!(cli.command, Command::Config(ConfigCommand::Init)));
     }
 
     #[test]
     fn cli_config_check() {
         let cli = Cli::try_parse_from(["proxmox", "config", "check"]).unwrap();
-        assert!(matches!(
-            cli.command,
-            Command::Config(ConfigCommand::Check)
-        ));
+        assert!(matches!(cli.command, Command::Config(ConfigCommand::Check)));
     }
 
     #[test]
     fn cli_profile_flag() {
-        let cli =
-            Cli::try_parse_from(["proxmox", "--profile", "production", "schema"]).unwrap();
+        let cli = Cli::try_parse_from(["proxmox", "--profile", "production", "schema"]).unwrap();
         assert_eq!(cli.profile.as_deref(), Some("production"));
     }
 
@@ -1031,8 +1025,14 @@ insecure = true
         let table: toml::Table = content.parse().unwrap();
         let section = table.get("default").unwrap().as_table().unwrap();
 
-        let host = section.get("host").and_then(|v| v.as_str()).map(String::from);
-        let token = section.get("token").and_then(|v| v.as_str()).map(String::from);
+        let host = section
+            .get("host")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+        let token = section
+            .get("token")
+            .and_then(|v| v.as_str())
+            .map(String::from);
         let insecure = section.get("insecure").and_then(|v| v.as_bool());
 
         assert_eq!(host.as_deref(), Some("pve.example.com:8006"));
@@ -1065,8 +1065,14 @@ token = "admin@pve!prod=prodtoken123"
 
         // Read "production" profile
         let section = table.get("production").unwrap().as_table().unwrap();
-        let host = section.get("host").and_then(|v| v.as_str()).map(String::from);
-        let token = section.get("token").and_then(|v| v.as_str()).map(String::from);
+        let host = section
+            .get("host")
+            .and_then(|v| v.as_str())
+            .map(String::from);
+        let token = section
+            .get("token")
+            .and_then(|v| v.as_str())
+            .map(String::from);
 
         assert_eq!(host.as_deref(), Some("pve-prod.example.com:8006"));
         assert_eq!(token.as_deref(), Some("admin@pve!prod=prodtoken123"));
