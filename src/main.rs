@@ -10,6 +10,7 @@ use proxmox_cli::api::error::exit_codes;
 use proxmox_cli::api::token::ApiToken;
 use proxmox_cli::commands::container::ContainerCommand;
 use proxmox_cli::commands::node::NodeCommand;
+use proxmox_cli::commands::task::TaskCommand;
 use proxmox_cli::commands::vm::VmCommand;
 use proxmox_cli::output::OutputConfig;
 
@@ -129,12 +130,6 @@ enum Command {
 }
 
 // ── Subcommand Enums (stubs) ────────────────────────────────────────
-
-#[derive(Subcommand)]
-enum TaskCommand {
-    /// List recent tasks
-    List,
-}
 
 #[derive(Subcommand)]
 enum StorageCommand {
@@ -813,7 +808,9 @@ async fn main() {
         Command::Node(cmd) => {
             proxmox_cli::commands::node::run(&client, output, cmd, cli.node.as_deref()).await
         }
-        Command::Task(_) => not_yet_implemented("task"),
+        Command::Task(cmd) => {
+            proxmox_cli::commands::task::run(&client, output, cmd, cli.node.as_deref()).await
+        }
         Command::Storage(_) => not_yet_implemented("storage"),
         Command::Backup(_) => not_yet_implemented("backup"),
         Command::Cluster(_) => not_yet_implemented("cluster"),
