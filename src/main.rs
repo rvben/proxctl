@@ -10,6 +10,8 @@ use proxmox_cli::api::error::exit_codes;
 use proxmox_cli::api::token::ApiToken;
 use proxmox_cli::output::OutputConfig;
 
+type Error = proxmox_cli::api::Error;
+
 const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 // ── CLI Structures ──────────────────────────────────────────────────
@@ -497,6 +499,278 @@ fn not_yet_implemented(name: &str) -> ! {
     process::exit(1);
 }
 
+// ── Config Init ──────────────────────────────────────────────────────
+
+fn default_config_path() -> Result<PathBuf, Error> {
+    let base = dirs::config_dir()
+        .ok_or_else(|| Error::Config("cannot determine config directory".to_string()))?;
+    Ok(base.join("proxmox").join("config.toml"))
+}
+
+/// Reads a value from a specific profile section within a parsed TOML table.
+/// Falls back to the `default` section if the profile section does not have the key.
+fn resolve_profile_value(table: &toml::Table, profile: &str, key: &str) -> Option<String> {
+    table
+        .get(profile)
+        .and_then(|v| v.as_table())
+        .and_then(|s| s.get(key))
+        .and_then(|v| v.as_str())
+        .map(String::from)
+        .or_else(|| {
+            if profile != "default" {
+                table
+                    .get("default")
+                    .and_then(|v| v.as_table())
+                    .and_then(|s| s.get(key))
+                    .and_then(|v| v.as_str())
+                    .map(String::from)
+            } else {
+                None
+            }
+        })
+}
+
+/// Extracts the full token string from a token creation API response.
+///
+/// Proxmox returns `{ "data": { "value": "<secret>", ... } }`.
+/// The token string format is `user@realm!tokenid=secret`.
+fn format_token_string(username: &str, token_id: &str, response: &serde_json::Value) -> Result<String, Error> {
+    let secret = response
+        .get("data")
+        .and_then(|d| d.get("value"))
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| Error::Api {
+            status: 0,
+            message: "token creation response missing data.value".to_string(),
+        })?;
+    Ok(format!("{username}!{token_id}={secret}"))
+}
+
+/// Writes config to disk, preserving any profiles not being overwritten.
+///
+/// Uses TOML section headers matching what `load_config` reads.
+/// The default profile is written as `[default]`, named profiles as `[name]`.
+fn save_config(
+    path: &PathBuf,
+    existing: Option<toml::Table>,
+    profile: &str,
+    host: &str,
+    token: &str,
+    insecure: bool,
+) -> Result<(), Error> {
+    // Start from existing table or empty one
+    let mut table = existing.unwrap_or_default();
+
+    // Build the profile section
+    let mut section = toml::map::Map::new();
+    section.insert("host".to_string(), toml::Value::String(host.to_string()));
+    section.insert("token".to_string(), toml::Value::String(token.to_string()));
+    section.insert("insecure".to_string(), toml::Value::Boolean(insecure));
+
+    table.insert(profile.to_string(), toml::Value::Table(section));
+
+    let content = toml::to_string_pretty(&table)
+        .map_err(|e| Error::Config(format!("failed to serialize config: {e}")))?;
+
+    if let Some(parent) = path.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| Error::Config(format!("failed to create config directory: {e}")))?;
+    }
+
+    std::fs::write(path, content)
+        .map_err(|e| Error::Config(format!("failed to write config file: {e}")))?;
+
+    Ok(())
+}
+
+/// Normalizes a host string: strips trailing slash, prepends `https://` if no scheme present.
+fn normalize_host(host: &str) -> String {
+    let host = host.trim_end_matches('/');
+    if host.contains("://") {
+        host.to_string()
+    } else {
+        format!("https://{host}")
+    }
+}
+
+async fn run_config_init() -> Result<(), Error> {
+    use dialoguer::{Confirm, Input};
+
+    let config_path = default_config_path()?;
+
+    // Load existing config if present
+    let existing_table: Option<toml::Table> = std::fs::read_to_string(&config_path)
+        .ok()
+        .and_then(|c| c.parse().ok());
+
+    // Step 1: Profile name
+    let profile_input: String = Input::new()
+        .with_prompt("Profile name (empty = default)")
+        .allow_empty(true)
+        .interact_text()
+        .map_err(|e| Error::Other(format!("input error: {e}")))?;
+    let profile = if profile_input.trim().is_empty() {
+        "default".to_string()
+    } else {
+        profile_input.trim().to_string()
+    };
+
+    // Step 2: Host — pre-fill from existing config if available
+    let existing_host = existing_table
+        .as_ref()
+        .and_then(|t| resolve_profile_value(t, &profile, "host"));
+    let host_prompt: String = Input::new()
+        .with_prompt("Proxmox host (e.g. 192.168.1.1:8006)")
+        .with_initial_text(existing_host.unwrap_or_default())
+        .interact_text()
+        .map_err(|e| Error::Other(format!("input error: {e}")))?;
+    let base_url = normalize_host(host_prompt.trim());
+
+    // Step 3: TLS verification (default: skip verification, since Proxmox uses self-signed certs)
+    let insecure = !Confirm::new()
+        .with_prompt("Verify TLS certificate?")
+        .default(false)
+        .interact()
+        .map_err(|e| Error::Other(format!("input error: {e}")))?;
+
+    // Step 4: Username
+    let username: String = Input::new()
+        .with_prompt("Username")
+        .default("root@pam".to_string())
+        .interact_text()
+        .map_err(|e| Error::Other(format!("input error: {e}")))?;
+
+    // Step 5: Password (no echo)
+    let password = rpassword::prompt_password("Password: ")
+        .map_err(|e| Error::Other(format!("failed to read password: {e}")))?;
+
+    // Step 6: Verify credentials — POST to /api2/json/access/ticket
+    println!("Connecting to {base_url} ...");
+
+    let http = reqwest::Client::builder()
+        .danger_accept_invalid_certs(insecure)
+        .build()
+        .map_err(Error::Http)?;
+
+    let ticket_resp = http
+        .post(format!("{base_url}/api2/json/access/ticket"))
+        .form(&[("username", &username), ("password", &password)])
+        .send()
+        .await
+        .map_err(Error::Http)?;
+
+    if !ticket_resp.status().is_success() {
+        let status = ticket_resp.status().as_u16();
+        let body = ticket_resp.text().await.unwrap_or_default();
+        return Err(Error::Auth(format!(
+            "authentication failed ({status}): {body}"
+        )));
+    }
+
+    let ticket_json: serde_json::Value = ticket_resp
+        .json()
+        .await
+        .map_err(Error::Http)?;
+
+    let ticket = ticket_json
+        .get("data")
+        .and_then(|d| d.get("ticket"))
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| Error::Auth("ticket response missing data.ticket".to_string()))?
+        .to_string();
+
+    let csrf = ticket_json
+        .get("data")
+        .and_then(|d| d.get("CSRFPreventionToken"))
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| Error::Auth("ticket response missing data.CSRFPreventionToken".to_string()))?
+        .to_string();
+
+    println!("Authenticated. Creating API token ...");
+
+    // Step 7: Create API token
+    let token_id = "proxmox-cli";
+    let token_url = format!("{base_url}/api2/json/access/users/{username}/tokens/{token_id}");
+
+    let create_resp = http
+        .post(&token_url)
+        .header("Cookie", format!("PVEAuthCookie={ticket}"))
+        .header("CSRFPreventionToken", &csrf)
+        .send()
+        .await
+        .map_err(Error::Http)?;
+
+    let token_json: serde_json::Value = if create_resp.status().as_u16() == 400 {
+        // Token already exists — delete it and recreate
+        println!("Token already exists, recreating ...");
+
+        let del_resp = http
+            .delete(&token_url)
+            .header("Cookie", format!("PVEAuthCookie={ticket}"))
+            .header("CSRFPreventionToken", &csrf)
+            .send()
+            .await
+            .map_err(Error::Http)?;
+
+        if !del_resp.status().is_success() {
+            let status = del_resp.status().as_u16();
+            let body = del_resp.text().await.unwrap_or_default();
+            return Err(Error::Api {
+                status,
+                message: format!("failed to delete existing token: {body}"),
+            });
+        }
+
+        let recreate_resp = http
+            .post(&token_url)
+            .header("Cookie", format!("PVEAuthCookie={ticket}"))
+            .header("CSRFPreventionToken", &csrf)
+            .send()
+            .await
+            .map_err(Error::Http)?;
+
+        if !recreate_resp.status().is_success() {
+            let status = recreate_resp.status().as_u16();
+            let body = recreate_resp.text().await.unwrap_or_default();
+            return Err(Error::Api {
+                status,
+                message: format!("failed to recreate token: {body}"),
+            });
+        }
+
+        recreate_resp.json().await.map_err(Error::Http)?
+    } else if create_resp.status().is_success() {
+        create_resp.json().await.map_err(Error::Http)?
+    } else {
+        let status = create_resp.status().as_u16();
+        let body = create_resp.text().await.unwrap_or_default();
+        return Err(Error::Api {
+            status,
+            message: format!("failed to create token: {body}"),
+        });
+    };
+
+    // Step 8: Format and save config
+    let token_string = format_token_string(&username, token_id, &token_json)?;
+
+    save_config(
+        &config_path,
+        existing_table,
+        &profile,
+        &base_url,
+        &token_string,
+        insecure,
+    )?;
+
+    println!(
+        "Config saved to {}",
+        config_path.display()
+    );
+    println!("Run `proxmox health` to verify connectivity.");
+
+    Ok(())
+}
+
 // ── Main ────────────────────────────────────────────────────────────
 
 #[tokio::main]
@@ -516,8 +790,11 @@ async fn main() {
             return;
         }
         Command::Config(ConfigCommand::Init) => {
-            eprintln!("Config init not yet implemented");
-            process::exit(1);
+            if let Err(e) = run_config_init().await {
+                eprintln!("Error: {e}");
+                process::exit(e.exit_code());
+            }
+            return;
         }
         _ => {}
     }
