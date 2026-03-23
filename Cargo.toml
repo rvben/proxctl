@@ -1,0 +1,38 @@
+[package]
+name = "proxmox-cli"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.90"
+description = "CLI for Proxmox VE"
+license = "MIT"
+repository = "https://github.com/rvben/proxmox-cli"
+homepage = "https://github.com/rvben/proxmox-cli"
+keywords = ["proxmox", "virtualization", "cli", "kvm", "lxc"]
+categories = ["command-line-utilities"]
+
+[[bin]]
+name = "proxmox"
+path = "src/main.rs"
+
+[[bin]]
+name = "proxmox-cli"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive", "env"] }
+clap_complete = "4"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
+toml = "0.8"
+owo-colors = "4"
+dirs = "6"
+thiserror = "2"
+indicatif = "0.17"
+rpassword = "7"
+dialoguer = "0.11"
+
+[dev-dependencies]
+tempfile = "3"
+wiremock = "0.6"
