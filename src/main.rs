@@ -8,6 +8,7 @@ use serde_json::json;
 use proxmox_cli::api::client::ProxmoxClient;
 use proxmox_cli::api::error::exit_codes;
 use proxmox_cli::api::token::ApiToken;
+use proxmox_cli::commands::access::AccessCommand;
 use proxmox_cli::commands::backup::BackupCommand;
 use proxmox_cli::commands::cluster::ClusterCommand;
 use proxmox_cli::commands::container::ContainerCommand;
@@ -134,12 +135,6 @@ enum Command {
 }
 
 // ── Subcommand Enums (stubs) ────────────────────────────────────────
-
-#[derive(Subcommand)]
-enum AccessCommand {
-    /// List users
-    List,
-}
 
 #[derive(Subcommand)]
 enum PoolCommand {
@@ -803,7 +798,9 @@ async fn main() {
         Command::Firewall(cmd) => {
             proxmox_cli::commands::firewall::run(&client, output, cmd, cli.node.as_deref()).await
         }
-        Command::Access(_) => not_yet_implemented("access"),
+        Command::Access(cmd) => {
+            proxmox_cli::commands::access::run(&client, output, cmd, cli.node.as_deref()).await
+        }
         Command::Pool(_) => not_yet_implemented("pool"),
         Command::Ceph(_) => not_yet_implemented("ceph"),
 
