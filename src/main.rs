@@ -9,6 +9,7 @@ use proxmox_cli::api::client::ProxmoxClient;
 use proxmox_cli::api::error::exit_codes;
 use proxmox_cli::api::token::ApiToken;
 use proxmox_cli::commands::backup::BackupCommand;
+use proxmox_cli::commands::cluster::ClusterCommand;
 use proxmox_cli::commands::container::ContainerCommand;
 use proxmox_cli::commands::node::NodeCommand;
 use proxmox_cli::commands::storage::StorageCommand;
@@ -132,12 +133,6 @@ enum Command {
 }
 
 // ── Subcommand Enums (stubs) ────────────────────────────────────────
-
-#[derive(Subcommand)]
-enum ClusterCommand {
-    /// Show cluster status
-    Status,
-}
 
 #[derive(Subcommand)]
 enum FirewallCommand {
@@ -807,7 +802,9 @@ async fn main() {
         Command::Backup(cmd) => {
             proxmox_cli::commands::backup::run(&client, output, cmd, cli.node.as_deref()).await
         }
-        Command::Cluster(_) => not_yet_implemented("cluster"),
+        Command::Cluster(cmd) => {
+            proxmox_cli::commands::cluster::run(&client, output, cmd, cli.node.as_deref()).await
+        }
         Command::Firewall(_) => not_yet_implemented("firewall"),
         Command::Access(_) => not_yet_implemented("access"),
         Command::Pool(_) => not_yet_implemented("pool"),

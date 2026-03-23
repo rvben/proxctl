@@ -1,5 +1,6 @@
 pub mod api;
 pub mod backup;
+pub mod cluster;
 pub mod container;
 pub mod node;
 pub mod storage;
