@@ -8,6 +8,7 @@ use serde_json::json;
 use proxmox_cli::api::client::ProxmoxClient;
 use proxmox_cli::api::error::exit_codes;
 use proxmox_cli::api::token::ApiToken;
+use proxmox_cli::commands::vm::VmCommand;
 use proxmox_cli::output::OutputConfig;
 
 type Error = proxmox_cli::api::Error;
@@ -126,17 +127,6 @@ enum Command {
 }
 
 // ── Subcommand Enums (stubs) ────────────────────────────────────────
-
-#[derive(Subcommand)]
-enum VmCommand {
-    /// List all virtual machines
-    List,
-    /// Show VM status
-    Status {
-        /// VM ID
-        vmid: u32,
-    },
-}
 
 #[derive(Subcommand)]
 enum ContainerCommand {
@@ -828,14 +818,15 @@ async fn main() {
         }
     };
 
-    let result = match &cli.command {
+    let result = match cli.command {
         Command::Health => run_health(&client, &output).await,
         Command::Version => run_version(&client, &output).await,
         Command::Config(ConfigCommand::Check) => run_config_check(&client, &output).await,
-        Command::Api(cmd) => run_api_command(&client, cmd, &output).await,
+        Command::Api(ref cmd) => run_api_command(&client, cmd, &output).await,
 
-        // Stubs for future implementation
-        Command::Vm(_) => not_yet_implemented("vm"),
+        Command::Vm(cmd) => {
+            proxmox_cli::commands::vm::run(&client, output, cmd, cli.node.as_deref()).await
+        }
         Command::Container(_) => not_yet_implemented("container"),
         Command::Node(_) => not_yet_implemented("node"),
         Command::Task(_) => not_yet_implemented("task"),
@@ -896,7 +887,7 @@ mod tests {
     #[test]
     fn cli_vm_alias_qm() {
         let cli = Cli::try_parse_from(["proxmox", "qm", "list"]).unwrap();
-        assert!(matches!(cli.command, Command::Vm(VmCommand::List)));
+        assert!(matches!(cli.command, Command::Vm(VmCommand::List { .. })));
     }
 
     #[test]
