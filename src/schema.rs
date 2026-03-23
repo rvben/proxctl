@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Metadata that clap doesn't know — manually maintained per command path.
 struct CommandMeta {
@@ -148,9 +148,15 @@ fn walk_commands(
             // Merge manually maintained metadata
             let meta = metadata.get(path.as_str());
             entry.insert("mutating".into(), json!(meta.is_some_and(|m| m.mutating)));
-            entry.insert("idempotent".into(), json!(meta.is_none_or(|m| m.idempotent)));
+            entry.insert(
+                "idempotent".into(),
+                json!(meta.is_none_or(|m| m.idempotent)),
+            );
             entry.insert("dangerous".into(), json!(meta.is_some_and(|m| m.dangerous)));
-            entry.insert("async_capable".into(), json!(meta.is_some_and(|m| m.async_capable)));
+            entry.insert(
+                "async_capable".into(),
+                json!(meta.is_some_and(|m| m.async_capable)),
+            );
 
             if let Some(m) = meta
                 && !m.output_fields.is_empty()
@@ -417,9 +423,8 @@ mod tests {
                     ),
             )
             .subcommand(
-                clap::Command::new("nested").subcommand(
-                    clap::Command::new("sub").about("Nested subcommand"),
-                ),
+                clap::Command::new("nested")
+                    .subcommand(clap::Command::new("sub").about("Nested subcommand")),
             )
     }
 

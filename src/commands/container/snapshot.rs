@@ -26,7 +26,7 @@ pub async fn list(
         return Ok(());
     }
 
-    println!("{:<20}  {:<30}  {:<20}", "NAME", "DESCRIPTION", "DATE");
+    println!("{:<20}  {:<20}  DESCRIPTION", "NAME", "DATE");
     for snap in &snapshots {
         let name = snap.get("name").and_then(|v| v.as_str()).unwrap_or("-");
         let desc = snap
@@ -34,15 +34,41 @@ pub async fn list(
             .and_then(|v| v.as_str())
             .unwrap_or("");
         let snaptime = snap.get("snaptime").and_then(|v| v.as_u64()).unwrap_or(0);
-        let date = if snaptime > 0 {
-            format!("{snaptime}")
-        } else {
-            "-".to_string()
-        };
-        println!("{:<20}  {:<30}  {:<20}", name, desc, date);
+        let date = format_epoch(snaptime);
+        println!("{:<20}  {:<20}  {desc}", name, date);
     }
 
     Ok(())
+}
+
+/// Formats a Unix epoch timestamp as a human-readable UTC date string.
+fn format_epoch(epoch: u64) -> String {
+    if epoch == 0 {
+        return "-".to_string();
+    }
+    let secs = epoch as i64;
+    let days = secs / 86400;
+    let time_of_day = secs % 86400;
+    let hours = time_of_day / 3600;
+    let mins = (time_of_day % 3600) / 60;
+
+    let (y, m, d) = civil_from_days(days + 719_468);
+    format!("{y:04}-{m:02}-{d:02} {hours:02}:{mins:02}")
+}
+
+/// Converts a day count (with epoch offset) to (year, month, day).
+/// Algorithm from Howard Hinnant's date library.
+fn civil_from_days(z: i64) -> (i64, u32, u32) {
+    let era = if z >= 0 { z } else { z - 146_096 } / 146_097;
+    let doe = (z - era * 146_097) as u32;
+    let yoe = (doe - doe / 1460 + doe / 36524 - doe / 146_096) / 365;
+    let y = yoe as i64 + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    (y, m, d)
 }
 
 pub async fn create(

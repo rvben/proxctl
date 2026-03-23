@@ -21,17 +21,20 @@ pub async fn show(
         return Ok(());
     }
 
-    println!("VM {vmid} configuration (node: {node})");
     if let Some(obj) = data.as_object() {
         let mut keys: Vec<&String> = obj.keys().collect();
         keys.sort();
+        let max_key_len = keys.iter().map(|k| k.len()).max().unwrap_or(0);
+        let col_width = max_key_len.max(3) + 2;
+
+        println!("{:<col_width$}  VALUE", "KEY");
         for key in keys {
             let val = &obj[key];
             let display = match val {
                 serde_json::Value::String(s) => s.clone(),
                 other => other.to_string(),
             };
-            println!("  {key}: {display}");
+            println!("{:<col_width$}  {display}", key);
         }
     }
 

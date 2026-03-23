@@ -359,10 +359,7 @@ fn run_config_show() {
                     if let Some((key, val)) = line.split_once('=') {
                         let trimmed = val.trim().trim_matches('"');
                         if let Some(eq_pos) = trimmed.find('=') {
-                            let masked = format!(
-                                "{}=****",
-                                &trimmed[..eq_pos]
-                            );
+                            let masked = format!("{}=****", &trimmed[..eq_pos]);
                             println!("{key}= \"{masked}\"");
                         } else {
                             println!("{line}");
