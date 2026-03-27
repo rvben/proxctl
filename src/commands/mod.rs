@@ -5,6 +5,7 @@ pub mod backup;
 pub mod ceph;
 pub mod cluster;
 pub mod container;
+pub mod export;
 pub mod firewall;
 pub mod node;
 pub mod pool;
