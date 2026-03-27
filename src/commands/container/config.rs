@@ -66,6 +66,7 @@ pub async fn set(
     hostname: Option<String>,
     description: Option<String>,
     onboot: Option<bool>,
+    nameserver: Option<String>,
 ) -> Result<(), Error> {
     let node = client.resolve_node_for_vmid(vmid, node_override).await?;
     let path = format!("/nodes/{node}/lxc/{vmid}/config");
@@ -85,6 +86,9 @@ pub async fn set(
     }
     if let Some(ob) = onboot {
         params.push(("onboot".to_string(), if ob { "1" } else { "0" }.to_string()));
+    }
+    if let Some(ns) = nameserver {
+        params.push(("nameserver".to_string(), ns));
     }
 
     if params.is_empty() {

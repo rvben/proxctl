@@ -192,6 +192,9 @@ pub enum ContainerCommand {
         /// Start at boot
         #[arg(long)]
         onboot: Option<bool>,
+        /// DNS nameserver(s) (e.g. "10.10.30.225 1.1.1.1")
+        #[arg(long)]
+        nameserver: Option<String>,
     },
     /// Create a new container
     Create {
@@ -362,6 +365,7 @@ pub async fn run(
             hostname,
             description,
             onboot,
+            nameserver,
         } => {
             config::set(
                 client,
@@ -373,6 +377,7 @@ pub async fn run(
                 hostname,
                 description,
                 onboot,
+                nameserver,
             )
             .await
         }
