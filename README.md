@@ -4,7 +4,7 @@
 [![CI](https://github.com/rvben/proxctl/actions/workflows/ci.yml/badge.svg)](https://github.com/rvben/proxctl/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-A command-line interface for [Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment/overview) -- manage VMs, containers, nodes, storage, and more from your terminal.
+A command-line interface for [Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment/overview) -- manage VMs, containers, nodes, storage, and more from your terminal. Includes declarative infrastructure management with `apply` and `export`.
 
 ## Install
 
@@ -44,9 +44,70 @@ proxctl vm snapshot list 100
 proxctl api get /nodes
 ```
 
+## Declarative Infrastructure (IaC)
+
+Manage Proxmox resources declaratively with YAML manifests, similar to `kubectl apply`.
+
+### Export existing resources
+
+```bash
+# Export a single VM
+proxctl export vm 101 > haos.yaml
+
+# Export all containers
+proxctl export container --all > containers.yaml
+
+# Export cluster firewall rules
+proxctl export firewall cluster > firewall.yaml
+```
+
+### Apply desired state
+
+```yaml
+# infra/web.yaml
+kind: vm
+name: web-01
+vmid: 100
+config:
+  memory: 4096
+  cores: 2
+  onboot: true
+---
+kind: firewall-rule
+scope: cluster
+config:
+  action: ACCEPT
+  type: in
+  proto: tcp
+  dport: "443"
+  comment: "Allow HTTPS"
+```
+
+```bash
+# Preview changes
+proxctl apply -f infra/ --dry-run
+
+# Apply changes
+proxctl apply -f infra/
+
+# Round-trip: export, then verify nothing drifted
+proxctl export vm --all > current.yaml
+proxctl apply -f current.yaml --dry-run  # should show "noop" for all
+```
+
+### Key behaviors
+
+- **Idempotent** -- running apply twice produces "up to date" on the second run
+- **Patch semantics** -- only specified config keys are changed, others left untouched
+- **Name or VMID** -- resources can be identified by name (auto-resolves VMID) or pinned by ID
+- **Multi-document** -- multiple resources in one file with `---` separators, or a directory of files
+- **Optional power state** -- add `state: running` or `state: stopped` to manage power, or omit to leave it alone
+- **Safe** -- shows a diff before applying, destructive changes prompt for confirmation
+
 ## Features
 
 - **145+ commands** covering VMs, containers, nodes, storage, backups, cluster, firewall, access control, pools, and Ceph
+- **Declarative IaC** -- `apply` and `export` for infrastructure-as-code workflows
 - **Auto-detection** -- resolves which node a VM lives on automatically
 - **Agent-friendly** -- `--json` output, `schema` command for introspection, structured exit codes
 - **Async task handling** -- waits for operations to complete with progress spinner
@@ -123,6 +184,7 @@ This enables AI agents and automation tools to discover available operations, re
 
 | Feature | proxctl | pvesh (built-in) | proxmoxer (Python) |
 |---|---|---|---|
+| Declarative IaC (apply/export) | Yes | No | No |
 | Typed CLI with completions | Yes | No | N/A |
 | Cross-platform binaries | Yes | No (PVE only) | pip install |
 | VMID auto-resolution | Yes | No | Manual |
