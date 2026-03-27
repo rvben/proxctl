@@ -2,6 +2,38 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.0] - 2026-03-27
+
+### Added
+- Declarative `apply` command for Infrastructure as Code workflows
+  - `proxctl apply -f manifest.yaml` converges resources to desired state
+  - YAML manifests for VMs, containers, and firewall rules
+  - Multi-document YAML and directory scanning (`-f dir/`)
+  - Diff display showing config changes before applying
+  - `--dry-run` for plan-only mode
+  - `--json` for structured output
+  - Idempotent: running twice produces "up to date"
+  - Name-based resource resolution (auto-discovers VMID from name)
+  - Optional `state: running|stopped` for power state management
+  - Firewall rules matched by comment field for updates
+- `export` command to generate apply-compatible manifests from existing resources
+  - `proxctl export vm <ID|NAME>` or `--all` for bulk export
+  - `proxctl export container <ID|NAME>` or `--all`
+  - `proxctl export firewall <scope> [target]`
+  - Config denylist filters noisy internal keys (digest, vmgenid, etc.)
+  - `--full` flag to include all keys
+  - `--include-state` to include power state
+  - Round-trips cleanly: `export > apply --dry-run` produces noop
+- Consistent table styling with bold headers and dimmed separators
+
+### Fixed
+- Column alignment for status text with color codes
+
+## [0.1.2] - 2026-03-25
+
+### Changed
+- Table output styling improvements
+
 ## [0.1.1] - 2026-03-23
 
 ### Added
