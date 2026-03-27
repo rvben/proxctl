@@ -381,6 +381,14 @@ fn build_metadata() -> HashMap<&'static str, CommandMeta> {
     meta!("ceph pool create", mutating: true, idempotent: false);
     meta!("ceph mon list", output_fields: &["name", "host", "addr"]);
 
+    // Apply
+    meta!("apply", mutating: true, idempotent: true, output_fields: &["kind", "name", "vmid", "action", "changes", "status", "error"]);
+
+    // Export
+    meta!("export vm", output_fields: &["kind", "name", "vmid", "node", "state", "config"]);
+    meta!("export container", output_fields: &["kind", "name", "vmid", "node", "state", "config"]);
+    meta!("export firewall", output_fields: &["kind", "scope", "target", "config"]);
+
     // API passthrough
     meta!("api get", output_fields: &[]);
     meta!("api post", mutating: true, idempotent: false);
