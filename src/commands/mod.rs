@@ -1,4 +1,5 @@
 pub mod access;
+pub mod apply;
 pub mod api;
 pub mod backup;
 pub mod ceph;
