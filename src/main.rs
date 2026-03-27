@@ -819,7 +819,8 @@ async fn main() {
             proxctl::commands::apply::run(&client, output, cmd, cli.node.as_deref()).await
         }
         Command::Export(cmd) => {
-            proxctl::commands::export::run(&client, output, cmd, cli.node.as_deref()).await
+            proxctl::commands::export::run(&client, output, cmd, cli.node.as_deref(), cli.json)
+                .await
         }
 
         // Already handled above

@@ -40,7 +40,7 @@ fn container_denylist() -> HashSet<&'static str> {
 }
 
 fn firewall_denylist() -> HashSet<&'static str> {
-    ["pos"].into()
+    ["pos", "digest"].into()
 }
 
 fn is_denied(key: &str, denylist: &HashSet<&str>, full: bool) -> bool {
@@ -136,9 +136,10 @@ pub enum ExportCommand {
 
 pub async fn run(
     client: &ProxmoxClient,
-    output: OutputConfig,
+    _output: OutputConfig,
     cmd: ExportCommand,
     global_node: Option<&str>,
+    json_explicit: bool,
 ) -> Result<(), Error> {
     let manifests = match cmd {
         ExportCommand::Vm {
@@ -182,8 +183,11 @@ pub async fn run(
         return Ok(());
     }
 
-    if output.json {
-        output.print_data(&serde_json::to_string_pretty(&manifests).expect("serialize"));
+    if json_explicit {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&manifests).expect("serialize")
+        );
     } else {
         for (i, m) in manifests.iter().enumerate() {
             if i > 0 {
