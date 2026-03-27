@@ -139,9 +139,7 @@ pub fn validate(sm: &SourcedManifest) -> Vec<String> {
     match m.kind {
         ResourceKind::Vm | ResourceKind::Container => {
             if m.name.is_none() && m.vmid.is_none() {
-                errors.push(format!(
-                    "{prefix}: must specify 'name' or 'vmid' (or both)"
-                ));
+                errors.push(format!("{prefix}: must specify 'name' or 'vmid' (or both)"));
             }
         }
         ResourceKind::FirewallRule => {

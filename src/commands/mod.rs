@@ -1,6 +1,6 @@
 pub mod access;
-pub mod apply;
 pub mod api;
+pub mod apply;
 pub mod backup;
 pub mod ceph;
 pub mod cluster;
