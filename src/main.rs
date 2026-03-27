@@ -14,6 +14,7 @@ use proxctl::commands::backup::BackupCommand;
 use proxctl::commands::ceph::CephCommand;
 use proxctl::commands::cluster::ClusterCommand;
 use proxctl::commands::container::ContainerCommand;
+use proxctl::commands::export::ExportCommand;
 use proxctl::commands::firewall::FirewallCommand;
 use proxctl::commands::node::NodeCommand;
 use proxctl::commands::pool::PoolCommand;
@@ -111,6 +112,10 @@ enum Command {
 
     /// Apply declarative resource manifests
     Apply(ApplyCommand),
+
+    /// Export resources as YAML manifests
+    #[command(subcommand)]
+    Export(ExportCommand),
 
     /// Raw API access
     #[command(subcommand)]
@@ -813,6 +818,9 @@ async fn main() {
         Command::Apply(cmd) => {
             proxctl::commands::apply::run(&client, output, cmd, cli.node.as_deref()).await
         }
+        Command::Export(cmd) => {
+            proxctl::commands::export::run(&client, output, cmd, cli.node.as_deref()).await
+        }
 
         // Already handled above
         Command::Schema
@@ -1146,5 +1154,81 @@ host = "pve.example.com:8006"
     fn cli_apply_requires_file() {
         let result = Cli::try_parse_from(["proxctl", "apply"]);
         assert!(result.is_err());
+    }
+
+    // ── Export Command CLI Parsing ─────────────────────────────────
+
+    #[test]
+    fn cli_export_vm_by_id() {
+        let cli = Cli::try_parse_from(["proxctl", "export", "vm", "101"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Command::Export(ExportCommand::Vm { .. })
+        ));
+    }
+
+    #[test]
+    fn cli_export_vm_all() {
+        let cli = Cli::try_parse_from(["proxctl", "export", "vm", "--all"]).unwrap();
+        match cli.command {
+            Command::Export(ExportCommand::Vm { all, .. }) => assert!(all),
+            _ => panic!("expected Export Vm"),
+        }
+    }
+
+    #[test]
+    fn cli_export_container_by_name() {
+        let cli = Cli::try_parse_from(["proxctl", "export", "container", "pihole"]).unwrap();
+        assert!(matches!(
+            cli.command,
+            Command::Export(ExportCommand::Container { .. })
+        ));
+    }
+
+    #[test]
+    fn cli_export_firewall_cluster() {
+        let cli = Cli::try_parse_from(["proxctl", "export", "firewall", "cluster"]).unwrap();
+        match cli.command {
+            Command::Export(ExportCommand::Firewall { scope, .. }) => {
+                assert_eq!(scope, "cluster");
+            }
+            _ => panic!("expected Export Firewall"),
+        }
+    }
+
+    #[test]
+    fn cli_export_firewall_vm() {
+        let cli = Cli::try_parse_from(["proxctl", "export", "firewall", "vm", "100"]).unwrap();
+        match cli.command {
+            Command::Export(ExportCommand::Firewall { scope, target, .. }) => {
+                assert_eq!(scope, "vm");
+                assert_eq!(target.as_deref(), Some("100"));
+            }
+            _ => panic!("expected Export Firewall"),
+        }
+    }
+
+    #[test]
+    fn cli_export_vm_with_flags() {
+        let cli = Cli::try_parse_from([
+            "proxctl",
+            "export",
+            "vm",
+            "101",
+            "--full",
+            "--include-state",
+        ])
+        .unwrap();
+        match cli.command {
+            Command::Export(ExportCommand::Vm {
+                full,
+                include_state,
+                ..
+            }) => {
+                assert!(full);
+                assert!(include_state);
+            }
+            _ => panic!("expected Export Vm"),
+        }
     }
 }
