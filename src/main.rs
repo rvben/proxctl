@@ -1096,4 +1096,56 @@ host = "pve.example.com:8006"
         let params = parse_data_params(&None);
         assert!(params.is_empty());
     }
+
+    // ── Apply Command CLI Parsing ──────────────────────────────────
+
+    #[test]
+    fn cli_apply_single_file() {
+        let cli = Cli::try_parse_from(["proxctl", "apply", "-f", "vm.yaml"]).unwrap();
+        match cli.command {
+            Command::Apply(cmd) => {
+                assert_eq!(cmd.files, vec!["vm.yaml"]);
+                assert!(!cmd.dry_run);
+                assert!(!cmd.yes);
+            }
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn cli_apply_multiple_files() {
+        let cli =
+            Cli::try_parse_from(["proxctl", "apply", "-f", "a.yaml", "-f", "b.yaml"]).unwrap();
+        match cli.command {
+            Command::Apply(cmd) => {
+                assert_eq!(cmd.files, vec!["a.yaml", "b.yaml"]);
+            }
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn cli_apply_dry_run() {
+        let cli =
+            Cli::try_parse_from(["proxctl", "apply", "-f", "vm.yaml", "--dry-run"]).unwrap();
+        match cli.command {
+            Command::Apply(cmd) => assert!(cmd.dry_run),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn cli_apply_yes_flag() {
+        let cli = Cli::try_parse_from(["proxctl", "apply", "-f", "vm.yaml", "-y"]).unwrap();
+        match cli.command {
+            Command::Apply(cmd) => assert!(cmd.yes),
+            _ => panic!("expected Apply"),
+        }
+    }
+
+    #[test]
+    fn cli_apply_requires_file() {
+        let result = Cli::try_parse_from(["proxctl", "apply"]);
+        assert!(result.is_err());
+    }
 }
