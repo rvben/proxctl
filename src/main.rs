@@ -1126,8 +1126,7 @@ host = "pve.example.com:8006"
 
     #[test]
     fn cli_apply_dry_run() {
-        let cli =
-            Cli::try_parse_from(["proxctl", "apply", "-f", "vm.yaml", "--dry-run"]).unwrap();
+        let cli = Cli::try_parse_from(["proxctl", "apply", "-f", "vm.yaml", "--dry-run"]).unwrap();
         match cli.command {
             Command::Apply(cmd) => assert!(cmd.dry_run),
             _ => panic!("expected Apply"),
