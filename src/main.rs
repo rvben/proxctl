@@ -9,6 +9,7 @@ use proxctl::api::client::ProxmoxClient;
 use proxctl::api::error::exit_codes;
 use proxctl::api::token::ApiToken;
 use proxctl::commands::access::AccessCommand;
+use proxctl::commands::apply::ApplyCommand;
 use proxctl::commands::backup::BackupCommand;
 use proxctl::commands::ceph::CephCommand;
 use proxctl::commands::cluster::ClusterCommand;
@@ -107,6 +108,9 @@ enum Command {
     /// Ceph storage management
     #[command(subcommand)]
     Ceph(CephCommand),
+
+    /// Apply declarative resource manifests
+    Apply(ApplyCommand),
 
     /// Raw API access
     #[command(subcommand)]
@@ -805,6 +809,9 @@ async fn main() {
         }
         Command::Ceph(cmd) => {
             proxctl::commands::ceph::run(&client, output, cmd, cli.node.as_deref()).await
+        }
+        Command::Apply(cmd) => {
+            proxctl::commands::apply::run(&client, output, cmd, cli.node.as_deref()).await
         }
 
         // Already handled above
