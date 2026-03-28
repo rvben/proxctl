@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+
+## [0.2.1](https://github.com/rvben/proxctl/compare/v0.2.0...v0.2.1) - 2026-03-28
+
+### Added
+
+- **container**: add --nameserver flag to container set command ([2cbdc9a](https://github.com/rvben/proxctl/commit/2cbdc9a421b3281731a48506cd3afb1f010752dd))
+- **schema**: add metadata for apply and export commands ([b408baa](https://github.com/rvben/proxctl/commit/b408baa1c496af992bc4dd3d2da4611af5ce6b72))
+
 ## [0.2.0] - 2026-03-27
 
 ### Added
