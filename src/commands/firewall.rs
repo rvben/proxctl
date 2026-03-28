@@ -42,6 +42,9 @@ pub enum ClusterFirewallCommand {
         /// Enable the rule
         #[arg(long)]
         enable: Option<bool>,
+        /// Network interface (e.g. vmbr0, vmbr0v30)
+        #[arg(long)]
+        iface: Option<String>,
         /// Source address
         #[arg(long)]
         source: Option<String>,
@@ -54,6 +57,9 @@ pub enum ClusterFirewallCommand {
         /// Protocol
         #[arg(long)]
         proto: Option<String>,
+        /// Macro (e.g. SSH, HTTP, HTTPS)
+        #[arg(long, rename_all = "kebab-case")]
+        r#macro: Option<String>,
         /// Comment
         #[arg(long)]
         comment: Option<String>,
@@ -91,6 +97,9 @@ pub enum NodeFirewallCommand {
         /// Enable the rule
         #[arg(long)]
         enable: Option<bool>,
+        /// Network interface (e.g. vmbr0, vmbr0v30)
+        #[arg(long)]
+        iface: Option<String>,
         /// Source address
         #[arg(long)]
         source: Option<String>,
@@ -103,6 +112,9 @@ pub enum NodeFirewallCommand {
         /// Protocol
         #[arg(long)]
         proto: Option<String>,
+        /// Macro (e.g. SSH, HTTP, HTTPS)
+        #[arg(long, rename_all = "kebab-case")]
+        r#macro: Option<String>,
         /// Comment
         #[arg(long)]
         comment: Option<String>,
@@ -206,10 +218,12 @@ pub async fn run(
                 action,
                 r#type,
                 enable,
+                iface,
                 source,
                 dest,
                 dport,
                 proto,
+                r#macro,
                 comment,
             } => {
                 cluster_add_rule(
@@ -218,10 +232,12 @@ pub async fn run(
                     &action,
                     &r#type,
                     enable,
+                    iface.as_deref(),
                     source.as_deref(),
                     dest.as_deref(),
                     dport.as_deref(),
                     proto.as_deref(),
+                    r#macro.as_deref(),
                     comment.as_deref(),
                 )
                 .await
@@ -240,10 +256,12 @@ pub async fn run(
                 action,
                 r#type,
                 enable,
+                iface,
                 source,
                 dest,
                 dport,
                 proto,
+                r#macro,
                 comment,
             } => {
                 let n = require_node(node.as_deref(), global_node)?;
@@ -254,10 +272,12 @@ pub async fn run(
                     &action,
                     &r#type,
                     enable,
+                    iface.as_deref(),
                     source.as_deref(),
                     dest.as_deref(),
                     dport.as_deref(),
                     proto.as_deref(),
+                    r#macro.as_deref(),
                     comment.as_deref(),
                 )
                 .await
@@ -336,10 +356,12 @@ fn build_rule_params(
     action: &str,
     rule_type: &str,
     enable: Option<bool>,
+    iface: Option<&str>,
     source: Option<&str>,
     dest: Option<&str>,
     dport: Option<&str>,
     proto: Option<&str>,
+    r#macro: Option<&str>,
     comment: Option<&str>,
 ) -> Vec<(String, String)> {
     let mut params: Vec<(String, String)> = vec![
@@ -348,6 +370,9 @@ fn build_rule_params(
     ];
     if let Some(e) = enable {
         params.push(("enable".to_string(), if e { "1" } else { "0" }.to_string()));
+    }
+    if let Some(i) = iface {
+        params.push(("iface".to_string(), i.to_string()));
     }
     if let Some(s) = source {
         params.push(("source".to_string(), s.to_string()));
@@ -360,6 +385,9 @@ fn build_rule_params(
     }
     if let Some(p) = proto {
         params.push(("proto".to_string(), p.to_string()));
+    }
+    if let Some(m) = r#macro {
+        params.push(("macro".to_string(), m.to_string()));
     }
     if let Some(c) = comment {
         params.push(("comment".to_string(), c.to_string()));
@@ -391,14 +419,16 @@ async fn cluster_add_rule(
     action: &str,
     rule_type: &str,
     enable: Option<bool>,
+    iface: Option<&str>,
     source: Option<&str>,
     dest: Option<&str>,
     dport: Option<&str>,
     proto: Option<&str>,
+    r#macro: Option<&str>,
     comment: Option<&str>,
 ) -> Result<(), Error> {
     let params = build_rule_params(
-        action, rule_type, enable, source, dest, dport, proto, comment,
+        action, rule_type, enable, iface, source, dest, dport, proto, r#macro, comment,
     );
     let param_refs: Vec<(&str, &str)> = params
         .iter()
@@ -459,14 +489,16 @@ async fn node_add_rule(
     action: &str,
     rule_type: &str,
     enable: Option<bool>,
+    iface: Option<&str>,
     source: Option<&str>,
     dest: Option<&str>,
     dport: Option<&str>,
     proto: Option<&str>,
+    r#macro: Option<&str>,
     comment: Option<&str>,
 ) -> Result<(), Error> {
     let params = build_rule_params(
-        action, rule_type, enable, source, dest, dport, proto, comment,
+        action, rule_type, enable, iface, source, dest, dport, proto, r#macro, comment,
     );
     let param_refs: Vec<(&str, &str)> = params
         .iter()
