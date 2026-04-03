@@ -3,6 +3,7 @@
 [![crates.io](https://img.shields.io/crates/v/proxctl.svg)](https://crates.io/crates/proxctl)
 [![CI](https://github.com/rvben/proxctl/actions/workflows/ci.yml/badge.svg)](https://github.com/rvben/proxctl/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![codecov](https://codecov.io/gh/rvben/proxctl/graph/badge.svg)](https://codecov.io/gh/rvben/proxctl)
 
 A command-line interface for [Proxmox VE](https://www.proxmox.com/en/proxmox-virtual-environment/overview) -- manage VMs, containers, nodes, storage, and more from your terminal. Includes declarative infrastructure management with `apply` and `export`.
 
