@@ -3,6 +3,13 @@
 All notable changes to this project will be documented in this file.
 
 
+
+## [0.2.2](https://github.com/rvben/proxctl/compare/v0.2.1...v0.2.2) - 2026-04-03
+
+### Added
+
+- **firewall**: add --iface and --macro flags to firewall add commands ([7533533](https://github.com/rvben/proxctl/commit/7533533da3bcc1e808cf3af5ffab6ca150d7a05b))
+
 ## [0.2.1](https://github.com/rvben/proxctl/compare/v0.2.0...v0.2.1) - 2026-03-28
 
 ### Added
