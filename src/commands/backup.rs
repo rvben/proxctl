@@ -4,6 +4,7 @@ use serde_json::json;
 
 use crate::api::Error;
 use crate::api::client::ProxmoxClient;
+use crate::commands::list_args::ListArgs;
 use crate::output::{OutputConfig, use_color};
 
 fn require_node<'a>(node: Option<&'a str>, global_node: Option<&'a str>) -> Result<&'a str, Error> {
@@ -69,6 +70,8 @@ pub enum BackupCommand {
         /// Node name
         #[arg(long)]
         node: Option<String>,
+        #[command(flatten)]
+        list: ListArgs,
     },
     /// Create a backup
     Create {
@@ -128,9 +131,10 @@ pub async fn run(
             vmid,
             storage,
             node,
+            list: list_args,
         } => {
             let n = require_node(node.as_deref(), global_node)?;
-            list(client, out, n, vmid, storage.as_deref()).await
+            list(client, out, n, vmid, storage.as_deref(), &list_args).await
         }
         BackupCommand::Create {
             vmid,
@@ -206,6 +210,7 @@ async fn list(
     node: &str,
     vmid_filter: Option<u32>,
     storage_filter: Option<&str>,
+    list_args: &ListArgs,
 ) -> Result<(), Error> {
     // Find backup-capable storages
     let storages: Vec<serde_json::Value> = client.get(&format!("/nodes/{node}/storage")).await?;
@@ -253,12 +258,19 @@ async fn list(
         });
     }
 
+    let total = all_backups.len();
+
     if out.json {
-        out.print_data(&serde_json::to_string_pretty(&all_backups).expect("serialize"));
+        let paginated: Vec<serde_json::Value> = list_args.paginate(&all_backups).to_vec();
+        let paginated = list_args.filter_fields(paginated);
+        let envelope = list_args.paginated_json(&paginated, total);
+        out.print_data(&serde_json::to_string_pretty(&envelope).expect("serialize"));
         return Ok(());
     }
 
-    if all_backups.is_empty() {
+    let page = list_args.paginate(&all_backups);
+
+    if page.is_empty() {
         out.print_message("No backups found.");
         return Ok(());
     }
@@ -273,7 +285,7 @@ async fn list(
         println!("{header}");
         println!("{}", "-".repeat(total_w));
     }
-    for b in &all_backups {
+    for b in page {
         let volid = b.get("volid").and_then(|v| v.as_str()).unwrap_or("-");
         let vmid = b
             .get("vmid")

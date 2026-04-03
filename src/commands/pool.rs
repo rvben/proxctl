@@ -4,6 +4,7 @@ use serde_json::json;
 
 use crate::api::Error;
 use crate::api::client::ProxmoxClient;
+use crate::commands::list_args::ListArgs;
 use crate::output::{OutputConfig, use_color};
 
 fn confirm_action(action: &str, yes: bool) -> Result<(), Error> {
@@ -25,7 +26,10 @@ fn confirm_action(action: &str, yes: bool) -> Result<(), Error> {
 #[derive(Subcommand)]
 pub enum PoolCommand {
     /// List resource pools
-    List,
+    List {
+        #[command(flatten)]
+        list: ListArgs,
+    },
     /// Show pool details
     Show {
         /// Pool ID
@@ -70,7 +74,7 @@ pub async fn run(
     _global_node: Option<&str>,
 ) -> Result<(), Error> {
     match cmd {
-        PoolCommand::List => list(client, out).await,
+        PoolCommand::List { list: list_args } => list(client, out, &list_args).await,
         PoolCommand::Show { poolid } => show(client, out, &poolid).await,
         PoolCommand::Create { poolid, comment } => {
             create(client, out, &poolid, comment.as_deref()).await
@@ -95,15 +99,25 @@ pub async fn run(
     }
 }
 
-async fn list(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
+async fn list(
+    client: &ProxmoxClient,
+    out: OutputConfig,
+    list_args: &ListArgs,
+) -> Result<(), Error> {
     let data: Vec<serde_json::Value> = client.get("/pools").await?;
+    let total = data.len();
 
     if out.json {
-        out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
+        let paginated: Vec<serde_json::Value> = list_args.paginate(&data).to_vec();
+        let paginated = list_args.filter_fields(paginated);
+        let envelope = list_args.paginated_json(&paginated, total);
+        out.print_data(&serde_json::to_string_pretty(&envelope).expect("serialize"));
         return Ok(());
     }
 
-    if data.is_empty() {
+    let page = list_args.paginate(&data);
+
+    if page.is_empty() {
         out.print_message("No resource pools found.");
         return Ok(());
     }
@@ -118,7 +132,7 @@ async fn list(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
         println!("{header}");
         println!("{}", "-".repeat(total_w));
     }
-    for pool in &data {
+    for pool in page {
         let poolid = pool.get("poolid").and_then(|v| v.as_str()).unwrap_or("-");
         let comment = pool.get("comment").and_then(|v| v.as_str()).unwrap_or("");
         if color {

@@ -8,6 +8,7 @@ use clap::Subcommand;
 
 use crate::api::Error;
 use crate::api::client::ProxmoxClient;
+use crate::commands::list_args::ListArgs;
 use crate::output::OutputConfig;
 
 #[derive(Subcommand)]
@@ -105,6 +106,8 @@ pub enum ContainerCommand {
         /// Filter by pool
         #[arg(long)]
         pool: Option<String>,
+        #[command(flatten)]
+        list: ListArgs,
     },
     /// Show container status
     Status {
@@ -314,7 +317,12 @@ pub async fn run(
     global_node: Option<&str>,
 ) -> Result<(), Error> {
     match cmd {
-        ContainerCommand::List { node, status, pool } => {
+        ContainerCommand::List {
+            node,
+            status,
+            pool,
+            list,
+        } => {
             let effective_node = node.as_deref().or(global_node);
             lifecycle::list(
                 client,
@@ -322,6 +330,7 @@ pub async fn run(
                 effective_node,
                 status.as_deref(),
                 pool.as_deref(),
+                &list,
             )
             .await
         }

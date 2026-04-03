@@ -4,6 +4,7 @@ use serde_json::json;
 
 use crate::api::Error;
 use crate::api::client::ProxmoxClient;
+use crate::commands::list_args::ListArgs;
 use crate::output::{OutputConfig, use_color};
 
 fn require_node<'a>(node: Option<&'a str>, global_node: Option<&'a str>) -> Result<&'a str, Error> {
@@ -37,6 +38,8 @@ pub enum StorageCommand {
         /// Filter by storage type
         #[arg(long, rename_all = "kebab-case")]
         r#type: Option<String>,
+        #[command(flatten)]
+        list: ListArgs,
     },
     /// Show storage status
     Status {
@@ -142,12 +145,17 @@ pub async fn run(
     global_node: Option<&str>,
 ) -> Result<(), Error> {
     match cmd {
-        StorageCommand::List { node, r#type } => {
+        StorageCommand::List {
+            node,
+            r#type,
+            list: list_args,
+        } => {
             list(
                 client,
                 out,
                 node.as_deref().or(global_node),
                 r#type.as_deref(),
+                &list_args,
             )
             .await
         }
@@ -231,6 +239,7 @@ async fn list(
     out: OutputConfig,
     node: Option<&str>,
     type_filter: Option<&str>,
+    list_args: &ListArgs,
 ) -> Result<(), Error> {
     let mut data: Vec<serde_json::Value> = client.get("/storage").await?;
 
@@ -250,12 +259,19 @@ async fn list(
         });
     }
 
+    let total = data.len();
+
     if out.json {
-        out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
+        let paginated: Vec<serde_json::Value> = list_args.paginate(&data).to_vec();
+        let paginated = list_args.filter_fields(paginated);
+        let envelope = list_args.paginated_json(&paginated, total);
+        out.print_data(&serde_json::to_string_pretty(&envelope).expect("serialize"));
         return Ok(());
     }
 
-    if data.is_empty() {
+    let page = list_args.paginate(&data);
+
+    if page.is_empty() {
         out.print_message("No storage pools found.");
         return Ok(());
     }
@@ -273,7 +289,7 @@ async fn list(
         println!("{header}");
         println!("{}", "-".repeat(total_w));
     }
-    for s in &data {
+    for s in page {
         let name = s.get("storage").and_then(|v| v.as_str()).unwrap_or("-");
         let stype = s.get("type").and_then(|v| v.as_str()).unwrap_or("-");
         let content = s.get("content").and_then(|v| v.as_str()).unwrap_or("-");

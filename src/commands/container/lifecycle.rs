@@ -3,6 +3,7 @@ use serde_json::json;
 
 use crate::api::Error;
 use crate::api::client::ProxmoxClient;
+use crate::commands::list_args::ListArgs;
 use crate::output::{OutputConfig, use_color};
 
 /// Format bytes as a human-readable string (e.g. "2.00 GiB").
@@ -47,6 +48,7 @@ pub async fn list(
     node: Option<&str>,
     status_filter: Option<&str>,
     pool_filter: Option<&str>,
+    list_args: &ListArgs,
 ) -> Result<(), Error> {
     let containers: Vec<serde_json::Value> = if let Some(n) = node {
         let items: Vec<serde_json::Value> = client.get(&format!("/nodes/{n}/lxc")).await?;
@@ -69,8 +71,8 @@ pub async fn list(
             .collect()
     };
 
-    let containers: Vec<&serde_json::Value> = containers
-        .iter()
+    let containers: Vec<serde_json::Value> = containers
+        .into_iter()
         .filter(|v| {
             if let Some(sf) = status_filter {
                 let s = v.get("status").and_then(|x| x.as_str()).unwrap_or("");
@@ -88,12 +90,19 @@ pub async fn list(
         })
         .collect();
 
+    let total = containers.len();
+
     if out.json {
-        out.print_data(&serde_json::to_string_pretty(&containers).expect("serialize"));
+        let paginated: Vec<serde_json::Value> = list_args.paginate(&containers).to_vec();
+        let paginated = list_args.filter_fields(paginated);
+        let envelope = list_args.paginated_json(&paginated, total);
+        out.print_data(&serde_json::to_string_pretty(&envelope).expect("serialize"));
         return Ok(());
     }
 
-    if containers.is_empty() {
+    let page = list_args.paginate(&containers);
+
+    if page.is_empty() {
         out.print_message("No containers found.");
         return Ok(());
     }
@@ -112,7 +121,7 @@ pub async fn list(
         println!("{}", "-".repeat(total_w));
     }
 
-    for ct in &containers {
+    for ct in page {
         let vmid = ct.get("vmid").and_then(|v| v.as_u64()).unwrap_or(0);
         let name = ct
             .get("name")

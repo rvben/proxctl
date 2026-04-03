@@ -3,6 +3,7 @@ use serde_json::json;
 
 use crate::api::Error;
 use crate::api::client::ProxmoxClient;
+use crate::commands::list_args::ListArgs;
 use crate::output::{OutputConfig, use_color};
 
 /// Format bytes as a human-readable string (e.g. "2.00 GiB").
@@ -47,6 +48,7 @@ pub async fn list(
     node: Option<&str>,
     status_filter: Option<&str>,
     pool_filter: Option<&str>,
+    list_args: &ListArgs,
 ) -> Result<(), Error> {
     let vms: Vec<serde_json::Value> = if let Some(n) = node {
         let items: Vec<serde_json::Value> = client.get(&format!("/nodes/{n}/qemu")).await?;
@@ -71,8 +73,8 @@ pub async fn list(
     };
 
     // Apply filters
-    let vms: Vec<&serde_json::Value> = vms
-        .iter()
+    let vms: Vec<serde_json::Value> = vms
+        .into_iter()
         .filter(|v| {
             if let Some(sf) = status_filter {
                 let s = v.get("status").and_then(|x| x.as_str()).unwrap_or("");
@@ -90,12 +92,19 @@ pub async fn list(
         })
         .collect();
 
+    let total = vms.len();
+
     if out.json {
-        out.print_data(&serde_json::to_string_pretty(&vms).expect("serialize"));
+        let paginated: Vec<serde_json::Value> = list_args.paginate(&vms).to_vec();
+        let paginated = list_args.filter_fields(paginated);
+        let envelope = list_args.paginated_json(&paginated, total);
+        out.print_data(&serde_json::to_string_pretty(&envelope).expect("serialize"));
         return Ok(());
     }
 
-    if vms.is_empty() {
+    let page = list_args.paginate(&vms);
+
+    if page.is_empty() {
         out.print_message("No virtual machines found.");
         return Ok(());
     }
@@ -114,7 +123,7 @@ pub async fn list(
         println!("{}", "-".repeat(total_w));
     }
 
-    for vm in &vms {
+    for vm in page {
         let vmid = vm.get("vmid").and_then(|v| v.as_u64()).unwrap_or(0);
         let name = vm.get("name").and_then(|v| v.as_str()).unwrap_or("-");
         let status = vm

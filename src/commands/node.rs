@@ -4,6 +4,7 @@ use serde_json::json;
 
 use crate::api::Error;
 use crate::api::client::ProxmoxClient;
+use crate::commands::list_args::ListArgs;
 use crate::output::{OutputConfig, use_color};
 
 #[derive(Subcommand)]
@@ -89,7 +90,10 @@ pub enum CertificateCommand {
 #[derive(Subcommand)]
 pub enum NodeCommand {
     /// List all nodes
-    List,
+    List {
+        #[command(flatten)]
+        list: ListArgs,
+    },
     /// Show node status
     Status {
         /// Node name (uses default node if not specified)
@@ -221,7 +225,7 @@ pub async fn run(
     global_node: Option<&str>,
 ) -> Result<(), Error> {
     match cmd {
-        NodeCommand::List => list(client, out).await,
+        NodeCommand::List { list: list_args } => list(client, out, &list_args).await,
         NodeCommand::Status { node } => {
             let n = require_node(node.as_deref(), global_node)?;
             status(client, out, n).await
@@ -270,15 +274,29 @@ pub async fn run(
     }
 }
 
-async fn list(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
+async fn list(
+    client: &ProxmoxClient,
+    out: OutputConfig,
+    list_args: &ListArgs,
+) -> Result<(), Error> {
     let nodes = client.list_nodes().await?;
+    let total = nodes.len();
 
     if out.json {
-        out.print_data(&serde_json::to_string_pretty(&nodes).expect("serialize"));
+        let values: Vec<serde_json::Value> = nodes
+            .iter()
+            .map(|n| serde_json::to_value(n).expect("serialize node"))
+            .collect();
+        let paginated: Vec<serde_json::Value> = list_args.paginate(&values).to_vec();
+        let paginated = list_args.filter_fields(paginated);
+        let envelope = list_args.paginated_json(&paginated, total);
+        out.print_data(&serde_json::to_string_pretty(&envelope).expect("serialize"));
         return Ok(());
     }
 
-    if nodes.is_empty() {
+    let page = list_args.paginate(&nodes);
+
+    if page.is_empty() {
         out.print_message("No nodes found.");
         return Ok(());
     }
@@ -297,7 +315,7 @@ async fn list(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
         println!("{}", "-".repeat(total_w));
     }
 
-    for node in &nodes {
+    for node in page {
         let hours = node.uptime / 3600;
         let days = hours / 24;
         let uptime_str = if days > 0 {

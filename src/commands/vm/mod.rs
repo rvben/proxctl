@@ -10,6 +10,7 @@ use clap::Subcommand;
 
 use crate::api::Error;
 use crate::api::client::ProxmoxClient;
+use crate::commands::list_args::ListArgs;
 use crate::output::OutputConfig;
 
 #[derive(Subcommand)]
@@ -173,6 +174,8 @@ pub enum VmCommand {
         /// Filter by pool
         #[arg(long)]
         pool: Option<String>,
+        #[command(flatten)]
+        list: ListArgs,
     },
     /// Show VM status
     Status {
@@ -393,7 +396,12 @@ pub async fn run(
     global_node: Option<&str>,
 ) -> Result<(), Error> {
     match cmd {
-        VmCommand::List { node, status, pool } => {
+        VmCommand::List {
+            node,
+            status,
+            pool,
+            list,
+        } => {
             let effective_node = node.as_deref().or(global_node);
             lifecycle::list(
                 client,
@@ -401,6 +409,7 @@ pub async fn run(
                 effective_node,
                 status.as_deref(),
                 pool.as_deref(),
+                &list,
             )
             .await
         }

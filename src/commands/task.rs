@@ -4,6 +4,7 @@ use serde_json::json;
 
 use crate::api::Error;
 use crate::api::client::{ProxmoxClient, parse_upid_node};
+use crate::commands::list_args::ListArgs;
 use crate::output::{OutputConfig, use_color};
 
 #[derive(Subcommand)]
@@ -19,6 +20,8 @@ pub enum TaskCommand {
         /// Filter by status (running, error, ok)
         #[arg(long)]
         status: Option<String>,
+        #[command(flatten)]
+        list: ListArgs,
     },
     /// Show task status
     Status {
@@ -56,6 +59,7 @@ pub async fn run(
             node,
             source,
             status,
+            list: list_args,
         } => {
             list(
                 client,
@@ -63,6 +67,7 @@ pub async fn run(
                 node.as_deref().or(global_node),
                 source.as_deref(),
                 status.as_deref(),
+                &list_args,
             )
             .await
         }
@@ -79,6 +84,7 @@ async fn list(
     node: Option<&str>,
     source: Option<&str>,
     status_filter: Option<&str>,
+    list_args: &ListArgs,
 ) -> Result<(), Error> {
     let data: Vec<serde_json::Value> = if let Some(n) = node {
         let mut path = format!("/nodes/{n}/tasks");
@@ -101,8 +107,8 @@ async fn list(
     };
 
     // Apply client-side status filter for ok/error
-    let data: Vec<&serde_json::Value> = data
-        .iter()
+    let data: Vec<serde_json::Value> = data
+        .into_iter()
         .filter(|t| {
             if let Some(sf) = status_filter {
                 match sf {
@@ -128,12 +134,19 @@ async fn list(
         })
         .collect();
 
+    let total = data.len();
+
     if out.json {
-        out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
+        let paginated: Vec<serde_json::Value> = list_args.paginate(&data).to_vec();
+        let paginated = list_args.filter_fields(paginated);
+        let envelope = list_args.paginated_json(&paginated, total);
+        out.print_data(&serde_json::to_string_pretty(&envelope).expect("serialize"));
         return Ok(());
     }
 
-    if data.is_empty() {
+    let page = list_args.paginate(&data);
+
+    if page.is_empty() {
         out.print_message("No tasks found.");
         return Ok(());
     }
@@ -151,7 +164,7 @@ async fn list(
         println!("{header}");
         println!("{}", "-".repeat(total_w));
     }
-    for task in &data {
+    for task in page {
         let node_name = task.get("node").and_then(|v| v.as_str()).unwrap_or("-");
         let task_type = task.get("type").and_then(|v| v.as_str()).unwrap_or("-");
         let id = task.get("id").and_then(|v| v.as_str()).unwrap_or("-");
