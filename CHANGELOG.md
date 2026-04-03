@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 
 
 
+
+## [0.2.4](https://github.com/rvben/proxctl/compare/v0.2.3...v0.2.4) - 2026-04-03
+
+### Added
+
+- **init**: add API docs URL, colored output, and next steps to config init ([53e3ca9](https://github.com/rvben/proxctl/commit/53e3ca91dfd0f448205afb8da4902ace2c98880f))
+
 ## [0.2.3](https://github.com/rvben/proxctl/compare/v0.2.2...v0.2.3) - 2026-04-03
 
 ## [0.2.2](https://github.com/rvben/proxctl/compare/v0.2.1...v0.2.2) - 2026-04-03
