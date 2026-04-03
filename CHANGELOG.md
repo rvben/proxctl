@@ -7,6 +7,13 @@ All notable changes to this project will be documented in this file.
 
 
 
+
+## [0.2.6](https://github.com/rvben/proxctl/compare/v0.2.5...v0.2.6) - 2026-04-03
+
+### Added
+
+- add --limit, --offset, --fields to all list commands ([0ecd684](https://github.com/rvben/proxctl/commit/0ecd6844273d697dcc1f7247f26743d6ac8252af))
+
 ## [0.2.5](https://github.com/rvben/proxctl/compare/v0.2.4...v0.2.5) - 2026-04-03
 
 ### Added
