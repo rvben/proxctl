@@ -1,10 +1,44 @@
-use clap::Subcommand;
+use clap::{Args, Subcommand};
 use owo_colors::OwoColorize;
 use serde_json::json;
 
 use crate::api::Error;
 use crate::api::client::ProxmoxClient;
 use crate::output::{OutputConfig, use_color};
+
+#[derive(Args)]
+pub struct FirewallRuleArgs {
+    /// Rule action (ACCEPT, DROP, REJECT)
+    #[arg(long)]
+    pub action: String,
+    /// Rule type (in, out, group)
+    #[arg(long, rename_all = "kebab-case")]
+    pub r#type: String,
+    /// Enable the rule
+    #[arg(long)]
+    pub enable: Option<bool>,
+    /// Network interface (e.g. vmbr0, vmbr0v30)
+    #[arg(long)]
+    pub iface: Option<String>,
+    /// Source address
+    #[arg(long)]
+    pub source: Option<String>,
+    /// Destination address
+    #[arg(long)]
+    pub dest: Option<String>,
+    /// Destination port
+    #[arg(long)]
+    pub dport: Option<String>,
+    /// Protocol
+    #[arg(long)]
+    pub proto: Option<String>,
+    /// Macro (e.g. SSH, HTTP, HTTPS)
+    #[arg(long, rename_all = "kebab-case")]
+    pub r#macro: Option<String>,
+    /// Comment
+    #[arg(long)]
+    pub comment: Option<String>,
+}
 
 fn require_node<'a>(node: Option<&'a str>, global_node: Option<&'a str>) -> Result<&'a str, Error> {
     node.or(global_node)
@@ -33,36 +67,8 @@ pub enum ClusterFirewallCommand {
     Rules,
     /// Add a cluster firewall rule
     Add {
-        /// Rule action (ACCEPT, DROP, REJECT)
-        #[arg(long)]
-        action: String,
-        /// Rule type (in, out, group)
-        #[arg(long, rename_all = "kebab-case")]
-        r#type: String,
-        /// Enable the rule
-        #[arg(long)]
-        enable: Option<bool>,
-        /// Network interface (e.g. vmbr0, vmbr0v30)
-        #[arg(long)]
-        iface: Option<String>,
-        /// Source address
-        #[arg(long)]
-        source: Option<String>,
-        /// Destination address
-        #[arg(long)]
-        dest: Option<String>,
-        /// Destination port
-        #[arg(long)]
-        dport: Option<String>,
-        /// Protocol
-        #[arg(long)]
-        proto: Option<String>,
-        /// Macro (e.g. SSH, HTTP, HTTPS)
-        #[arg(long, rename_all = "kebab-case")]
-        r#macro: Option<String>,
-        /// Comment
-        #[arg(long)]
-        comment: Option<String>,
+        #[command(flatten)]
+        rule: Box<FirewallRuleArgs>,
     },
     /// Delete a cluster firewall rule
     Delete {
@@ -88,36 +94,8 @@ pub enum NodeFirewallCommand {
         /// Node name
         #[arg(long)]
         node: Option<String>,
-        /// Rule action (ACCEPT, DROP, REJECT)
-        #[arg(long)]
-        action: String,
-        /// Rule type (in, out, group)
-        #[arg(long, rename_all = "kebab-case")]
-        r#type: String,
-        /// Enable the rule
-        #[arg(long)]
-        enable: Option<bool>,
-        /// Network interface (e.g. vmbr0, vmbr0v30)
-        #[arg(long)]
-        iface: Option<String>,
-        /// Source address
-        #[arg(long)]
-        source: Option<String>,
-        /// Destination address
-        #[arg(long)]
-        dest: Option<String>,
-        /// Destination port
-        #[arg(long)]
-        dport: Option<String>,
-        /// Protocol
-        #[arg(long)]
-        proto: Option<String>,
-        /// Macro (e.g. SSH, HTTP, HTTPS)
-        #[arg(long, rename_all = "kebab-case")]
-        r#macro: Option<String>,
-        /// Comment
-        #[arg(long)]
-        comment: Option<String>,
+        #[command(flatten)]
+        rule: Box<FirewallRuleArgs>,
     },
     /// Delete a node firewall rule
     Delete {
@@ -214,33 +192,19 @@ pub async fn run(
     match cmd {
         FirewallCommand::Cluster(sub) => match sub {
             ClusterFirewallCommand::Rules => cluster_rules(client, out).await,
-            ClusterFirewallCommand::Add {
-                action,
-                r#type,
-                enable,
-                iface,
-                source,
-                dest,
-                dport,
-                proto,
-                r#macro,
-                comment,
-            } => {
-                cluster_add_rule(
-                    client,
-                    out,
-                    &action,
-                    &r#type,
-                    enable,
-                    iface.as_deref(),
-                    source.as_deref(),
-                    dest.as_deref(),
-                    dport.as_deref(),
-                    proto.as_deref(),
-                    r#macro.as_deref(),
-                    comment.as_deref(),
-                )
-                .await
+            ClusterFirewallCommand::Add { rule } => {
+                let params = build_rule_params(&rule);
+                let param_refs: Vec<(&str, &str)> = params
+                    .iter()
+                    .map(|(k, v)| (k.as_str(), v.as_str()))
+                    .collect();
+                let _: serde_json::Value =
+                    client.post("/cluster/firewall/rules", &param_refs).await?;
+                out.print_result(
+                    &json!({"status": "rule added", "scope": "cluster"}),
+                    "Cluster firewall rule added",
+                );
+                Ok(())
             }
             ClusterFirewallCommand::Delete { pos, yes } => {
                 cluster_delete_rule(client, out, pos, yes).await
@@ -251,36 +215,20 @@ pub async fn run(
                 let n = require_node(node.as_deref(), global_node)?;
                 node_rules(client, out, n).await
             }
-            NodeFirewallCommand::Add {
-                node,
-                action,
-                r#type,
-                enable,
-                iface,
-                source,
-                dest,
-                dport,
-                proto,
-                r#macro,
-                comment,
-            } => {
+            NodeFirewallCommand::Add { node, rule } => {
                 let n = require_node(node.as_deref(), global_node)?;
-                node_add_rule(
-                    client,
-                    out,
-                    n,
-                    &action,
-                    &r#type,
-                    enable,
-                    iface.as_deref(),
-                    source.as_deref(),
-                    dest.as_deref(),
-                    dport.as_deref(),
-                    proto.as_deref(),
-                    r#macro.as_deref(),
-                    comment.as_deref(),
-                )
-                .await
+                let params = build_rule_params(&rule);
+                let param_refs: Vec<(&str, &str)> = params
+                    .iter()
+                    .map(|(k, v)| (k.as_str(), v.as_str()))
+                    .collect();
+                let path = format!("/nodes/{n}/firewall/rules");
+                let _: serde_json::Value = client.post(&path, &param_refs).await?;
+                out.print_result(
+                    &json!({"status": "rule added", "scope": "node", "node": n}),
+                    &format!("Node {n} firewall rule added"),
+                );
+                Ok(())
             }
             NodeFirewallCommand::Delete { node, pos, yes } => {
                 let n = require_node(node.as_deref(), global_node)?;
@@ -351,46 +299,34 @@ fn print_rules(data: &[serde_json::Value]) {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn build_rule_params(
-    action: &str,
-    rule_type: &str,
-    enable: Option<bool>,
-    iface: Option<&str>,
-    source: Option<&str>,
-    dest: Option<&str>,
-    dport: Option<&str>,
-    proto: Option<&str>,
-    r#macro: Option<&str>,
-    comment: Option<&str>,
-) -> Vec<(String, String)> {
+fn build_rule_params(rule: &FirewallRuleArgs) -> Vec<(String, String)> {
     let mut params: Vec<(String, String)> = vec![
-        ("action".to_string(), action.to_string()),
-        ("type".to_string(), rule_type.to_string()),
+        ("action".to_string(), rule.action.clone()),
+        ("type".to_string(), rule.r#type.clone()),
     ];
-    if let Some(e) = enable {
+    if let Some(e) = rule.enable {
         params.push(("enable".to_string(), if e { "1" } else { "0" }.to_string()));
     }
-    if let Some(i) = iface {
-        params.push(("iface".to_string(), i.to_string()));
+    if let Some(ref i) = rule.iface {
+        params.push(("iface".to_string(), i.clone()));
     }
-    if let Some(s) = source {
-        params.push(("source".to_string(), s.to_string()));
+    if let Some(ref s) = rule.source {
+        params.push(("source".to_string(), s.clone()));
     }
-    if let Some(d) = dest {
-        params.push(("dest".to_string(), d.to_string()));
+    if let Some(ref d) = rule.dest {
+        params.push(("dest".to_string(), d.clone()));
     }
-    if let Some(dp) = dport {
-        params.push(("dport".to_string(), dp.to_string()));
+    if let Some(ref dp) = rule.dport {
+        params.push(("dport".to_string(), dp.clone()));
     }
-    if let Some(p) = proto {
-        params.push(("proto".to_string(), p.to_string()));
+    if let Some(ref p) = rule.proto {
+        params.push(("proto".to_string(), p.clone()));
     }
-    if let Some(m) = r#macro {
-        params.push(("macro".to_string(), m.to_string()));
+    if let Some(ref m) = rule.r#macro {
+        params.push(("macro".to_string(), m.clone()));
     }
-    if let Some(c) = comment {
-        params.push(("comment".to_string(), c.to_string()));
+    if let Some(ref c) = rule.comment {
+        params.push(("comment".to_string(), c.clone()));
     }
     params
 }
@@ -409,37 +345,6 @@ async fn cluster_rules(client: &ProxmoxClient, out: OutputConfig) -> Result<(), 
     }
 
     print_rules(&data);
-    Ok(())
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn cluster_add_rule(
-    client: &ProxmoxClient,
-    out: OutputConfig,
-    action: &str,
-    rule_type: &str,
-    enable: Option<bool>,
-    iface: Option<&str>,
-    source: Option<&str>,
-    dest: Option<&str>,
-    dport: Option<&str>,
-    proto: Option<&str>,
-    r#macro: Option<&str>,
-    comment: Option<&str>,
-) -> Result<(), Error> {
-    let params = build_rule_params(
-        action, rule_type, enable, iface, source, dest, dport, proto, r#macro, comment,
-    );
-    let param_refs: Vec<(&str, &str)> = params
-        .iter()
-        .map(|(k, v)| (k.as_str(), v.as_str()))
-        .collect();
-    let _: serde_json::Value = client.post("/cluster/firewall/rules", &param_refs).await?;
-
-    out.print_result(
-        &json!({"status": "rule added", "scope": "cluster"}),
-        "Cluster firewall rule added",
-    );
     Ok(())
 }
 
@@ -478,39 +383,6 @@ async fn node_rules(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Re
     }
 
     print_rules(&data);
-    Ok(())
-}
-
-#[allow(clippy::too_many_arguments)]
-async fn node_add_rule(
-    client: &ProxmoxClient,
-    out: OutputConfig,
-    node: &str,
-    action: &str,
-    rule_type: &str,
-    enable: Option<bool>,
-    iface: Option<&str>,
-    source: Option<&str>,
-    dest: Option<&str>,
-    dport: Option<&str>,
-    proto: Option<&str>,
-    r#macro: Option<&str>,
-    comment: Option<&str>,
-) -> Result<(), Error> {
-    let params = build_rule_params(
-        action, rule_type, enable, iface, source, dest, dport, proto, r#macro, comment,
-    );
-    let param_refs: Vec<(&str, &str)> = params
-        .iter()
-        .map(|(k, v)| (k.as_str(), v.as_str()))
-        .collect();
-    let path = format!("/nodes/{node}/firewall/rules");
-    let _: serde_json::Value = client.post(&path, &param_refs).await?;
-
-    out.print_result(
-        &json!({"status": "rule added", "scope": "node", "node": node}),
-        &format!("Node {node} firewall rule added"),
-    );
     Ok(())
 }
 
