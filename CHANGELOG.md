@@ -6,6 +6,13 @@ All notable changes to this project will be documented in this file.
 
 
 
+
+## [0.2.5](https://github.com/rvben/proxctl/compare/v0.2.4...v0.2.5) - 2026-04-03
+
+### Added
+
+- add error kinds to schema and structured JSON errors on stderr ([b46b7d6](https://github.com/rvben/proxctl/commit/b46b7d67d0a40412ffb90771e221e5dbf9b08f73))
+
 ## [0.2.4](https://github.com/rvben/proxctl/compare/v0.2.3...v0.2.4) - 2026-04-03
 
 ### Added
