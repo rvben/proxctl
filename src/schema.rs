@@ -184,6 +184,15 @@ pub fn generate(cmd: &clap::Command) -> Value {
         "version": env!("CARGO_PKG_VERSION"),
         "description": "CLI for Proxmox VE — manage VMs, containers, nodes, storage, and more",
         "usage": "proxctl [OPTIONS] <COMMAND> [SUBCOMMAND] [ARGS]",
+        "errors": [
+            {"kind": "config", "retryable": false, "description": "Configuration error"},
+            {"kind": "auth", "retryable": false, "description": "Authentication failed"},
+            {"kind": "not_found", "retryable": false, "description": "Resource not found"},
+            {"kind": "api", "retryable": true, "description": "API error"},
+            {"kind": "conflict", "retryable": false, "description": "Resource conflict"},
+            {"kind": "timeout", "retryable": true, "description": "Operation timed out"},
+            {"kind": "other", "retryable": false, "description": "General error"}
+        ],
         "global_flags": {
             "--host": {"type": "string", "env": "PROXMOX_HOST", "description": "Proxmox host (e.g., 192.168.1.25:8006)"},
             "--token": {"type": "string", "env": "PROXMOX_TOKEN", "description": "API token (user@realm!tokenid=secret)"},
@@ -443,6 +452,7 @@ mod tests {
         assert!(schema.get("version").is_some());
         assert!(schema.get("global_flags").is_some());
         assert!(schema.get("exit_codes").is_some());
+        assert!(schema.get("errors").is_some());
         assert!(schema.get("commands").is_some());
         assert!(schema.get("notes").is_some());
     }
@@ -479,6 +489,30 @@ mod tests {
         let mode = flags.iter().find(|f| f["name"] == "--mode").unwrap();
         let enums = mode["enum"].as_array().unwrap();
         assert_eq!(enums, &[json!("fast"), json!("slow")]);
+    }
+
+    #[test]
+    fn schema_errors_array_has_all_kinds() {
+        let schema = generate(&test_cmd());
+        let errors = schema["errors"].as_array().unwrap();
+        assert_eq!(errors.len(), 7);
+
+        let kinds: Vec<&str> = errors.iter().map(|e| e["kind"].as_str().unwrap()).collect();
+        assert!(kinds.contains(&"config"));
+        assert!(kinds.contains(&"auth"));
+        assert!(kinds.contains(&"not_found"));
+        assert!(kinds.contains(&"api"));
+        assert!(kinds.contains(&"conflict"));
+        assert!(kinds.contains(&"timeout"));
+        assert!(kinds.contains(&"other"));
+
+        // Verify retryable fields
+        let api = errors.iter().find(|e| e["kind"] == "api").unwrap();
+        assert_eq!(api["retryable"], true);
+        let timeout = errors.iter().find(|e| e["kind"] == "timeout").unwrap();
+        assert_eq!(timeout["retryable"], true);
+        let config = errors.iter().find(|e| e["kind"] == "config").unwrap();
+        assert_eq!(config["retryable"], false);
     }
 
     #[test]

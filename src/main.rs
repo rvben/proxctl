@@ -1,3 +1,4 @@
+use std::io::IsTerminal;
 use std::path::PathBuf;
 use std::process;
 
@@ -6,7 +7,6 @@ use clap_complete::Shell;
 use serde_json::json;
 
 use proxctl::api::client::ProxmoxClient;
-use proxctl::api::error::exit_codes;
 use proxctl::api::token::ApiToken;
 use proxctl::commands::access::AccessCommand;
 use proxctl::commands::apply::ApplyCommand;
@@ -760,6 +760,22 @@ async fn run_config_init() -> Result<(), Error> {
     Ok(())
 }
 
+/// Print an error to stderr. When stdout is not a TTY (piped), output
+/// structured JSON so consuming agents can parse error details.
+fn print_error(e: &Error) {
+    if std::io::stdout().is_terminal() {
+        eprintln!("Error: {e}");
+    } else {
+        let json = json!({
+            "error": {
+                "kind": e.kind(),
+                "message": e.to_string(),
+            }
+        });
+        eprintln!("{}", serde_json::to_string(&json).expect("serialize error"));
+    }
+}
+
 // ── Main ────────────────────────────────────────────────────────────
 
 #[tokio::main]
@@ -780,7 +796,7 @@ async fn main() {
         }
         Command::Config(ConfigCommand::Init) => {
             if let Err(e) = run_config_init().await {
-                eprintln!("Error: {e}");
+                print_error(&e);
                 process::exit(e.exit_code());
             }
             return;
@@ -796,15 +812,19 @@ async fn main() {
     let (cfg_host, cfg_token, cfg_insecure) = load_config(cli.profile.as_deref());
 
     let host = cli.host.or(cfg_host).unwrap_or_else(|| {
-        eprintln!("Error: no host configured. Set --host, PROXMOX_HOST, or configure a profile.");
-        process::exit(exit_codes::CONFIG_ERROR);
+        let e = Error::Config(
+            "no host configured. Set --host, PROXMOX_HOST, or configure a profile.".to_string(),
+        );
+        print_error(&e);
+        process::exit(e.exit_code());
     });
 
     let token_str = cli.token.or(cfg_token).unwrap_or_else(|| {
-        eprintln!(
-            "Error: no token configured. Set --token, PROXMOX_TOKEN, or configure a profile."
+        let e = Error::Config(
+            "no token configured. Set --token, PROXMOX_TOKEN, or configure a profile.".to_string(),
         );
-        process::exit(exit_codes::CONFIG_ERROR);
+        print_error(&e);
+        process::exit(e.exit_code());
     });
 
     let insecure = cli.insecure || cfg_insecure.unwrap_or(false);
@@ -812,15 +832,16 @@ async fn main() {
     let token: ApiToken = match token_str.parse() {
         Ok(t) => t,
         Err(e) => {
-            eprintln!("Error: {e}");
-            process::exit(exit_codes::CONFIG_ERROR);
+            let err = Error::Config(e.to_string());
+            print_error(&err);
+            process::exit(err.exit_code());
         }
     };
 
     let client = match ProxmoxClient::new(&host, token, insecure) {
         Ok(c) => c,
         Err(e) => {
-            eprintln!("Error: {e}");
+            print_error(&e);
             process::exit(e.exit_code());
         }
     };
@@ -882,7 +903,7 @@ async fn main() {
     };
 
     if let Err(e) = result {
-        eprintln!("Error: {e}");
+        print_error(&e);
         process::exit(e.exit_code());
     }
 }

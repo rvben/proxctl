@@ -40,6 +40,19 @@ pub enum Error {
 }
 
 impl Error {
+    /// Returns a machine-readable error kind string for structured error output.
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Error::Config(_) => "config",
+            Error::Auth(_) => "auth",
+            Error::NotFound(_) => "not_found",
+            Error::Api { .. } | Error::TaskFailed(_) => "api",
+            Error::Conflict(_) => "conflict",
+            Error::Timeout(_) => "timeout",
+            Error::Http(_) | Error::Other(_) => "other",
+        }
+    }
+
     pub fn exit_code(&self) -> i32 {
         match self {
             Error::Config(_) => exit_codes::CONFIG_ERROR,
@@ -172,6 +185,25 @@ mod tests {
         assert_eq!(exit_codes::API_ERROR, 5);
         assert_eq!(exit_codes::CONFLICT, 6);
         assert_eq!(exit_codes::TIMEOUT, 7);
+    }
+
+    #[test]
+    fn test_kind_maps_correctly() {
+        assert_eq!(Error::Config("x".into()).kind(), "config");
+        assert_eq!(Error::Auth("x".into()).kind(), "auth");
+        assert_eq!(Error::NotFound("x".into()).kind(), "not_found");
+        assert_eq!(
+            Error::Api {
+                status: 500,
+                message: "x".into()
+            }
+            .kind(),
+            "api"
+        );
+        assert_eq!(Error::TaskFailed("x".into()).kind(), "api");
+        assert_eq!(Error::Conflict("x".into()).kind(), "conflict");
+        assert_eq!(Error::Timeout("x".into()).kind(), "timeout");
+        assert_eq!(Error::Other("x".into()).kind(), "other");
     }
 
     #[test]
