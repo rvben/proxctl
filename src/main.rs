@@ -537,6 +537,24 @@ fn normalize_host(host: &str) -> String {
     }
 }
 
+fn sym_ok() -> String {
+    use owo_colors::OwoColorize;
+    if proxctl::output::use_color() {
+        "✔".green().to_string()
+    } else {
+        "✔".to_owned()
+    }
+}
+
+fn sym_dim(s: &str) -> String {
+    use owo_colors::OwoColorize;
+    if proxctl::output::use_color() {
+        s.dimmed().to_string()
+    } else {
+        s.to_owned()
+    }
+}
+
 async fn run_config_init() -> Result<(), Error> {
     use dialoguer::{Confirm, Input};
 
@@ -589,7 +607,9 @@ async fn run_config_init() -> Result<(), Error> {
         .map_err(|e| Error::Other(format!("failed to read password: {e}")))?;
 
     // Step 6: Verify credentials — POST to /api2/json/access/ticket
-    println!("Connecting to {base_url} ...");
+    let sep = sym_dim("──────────────");
+    eprintln!();
+    eprintln!("  Connecting to {base_url} ...");
 
     let http = reqwest::Client::builder()
         .danger_accept_invalid_certs(insecure)
@@ -627,7 +647,16 @@ async fn run_config_init() -> Result<(), Error> {
         .ok_or_else(|| Error::Auth("ticket response missing data.CSRFPreventionToken".to_string()))?
         .to_string();
 
-    println!("Authenticated. Creating API token ...");
+    eprintln!("  {} Authenticated", sym_ok());
+    eprintln!();
+    eprintln!(
+        "  {}",
+        sym_dim(&format!(
+            "API docs: {base_url}/pve-docs/api-viewer/index.html"
+        ))
+    );
+    eprintln!();
+    eprintln!("  Creating API token ...");
 
     // Step 7: Create API token
     let token_id = "proxctl";
@@ -644,7 +673,7 @@ async fn run_config_init() -> Result<(), Error> {
 
     let token_json: serde_json::Value = if create_resp.status().as_u16() == 400 {
         // Token already exists — delete it and recreate
-        println!("Token already exists, recreating ...");
+        eprintln!("  Token already exists, recreating ...");
 
         let del_resp = http
             .delete(&token_url)
@@ -705,8 +734,28 @@ async fn run_config_init() -> Result<(), Error> {
         insecure,
     )?;
 
-    println!("Config saved to {}", config_path.display());
-    println!("Run `proxctl health` to verify connectivity.");
+    eprintln!();
+    eprintln!(
+        "  {} Configuration saved to {}",
+        sym_ok(),
+        config_path.display()
+    );
+    eprintln!();
+    eprintln!("{sep}");
+    eprintln!("  Next steps:");
+    eprintln!(
+        "    {}",
+        sym_dim("proxctl health          # verify connectivity")
+    );
+    eprintln!(
+        "    {}",
+        sym_dim("proxctl vm list         # list virtual machines")
+    );
+    eprintln!(
+        "    {}",
+        sym_dim("proxctl completions zsh # shell completions")
+    );
+    eprintln!("{sep}");
 
     Ok(())
 }
