@@ -63,6 +63,10 @@ struct Cli {
     #[arg(long, global = true)]
     insecure: bool,
 
+    /// Skip confirmation prompts for destructive operations (required in non-interactive mode)
+    #[arg(long, short = 'y', global = true)]
+    yes: bool,
+
     #[command(subcommand)]
     command: Command,
 }
@@ -781,7 +785,26 @@ fn print_error(e: &Error) {
 
 #[tokio::main]
 async fn main() {
-    let cli = Cli::parse();
+    let cli = Cli::try_parse().unwrap_or_else(|e| {
+        // For --help and --version, let clap print normally and exit.
+        if !e.use_stderr() {
+            e.print().expect("print clap message");
+            process::exit(e.exit_code());
+        }
+        // For actual parse errors (unknown subcommand, bad args, etc.),
+        // emit a JSON error envelope as the last line of stderr so agents
+        // can parse the error kind without relying on prose output.
+        // Use "usage" kind (not in the finite set declared in schema) so
+        // consumers can distinguish parse errors from runtime errors.
+        let json = json!({
+            "error": {
+                "kind": "usage",
+                "message": e.render().to_string().trim().to_string(),
+            }
+        });
+        eprintln!("{}", serde_json::to_string(&json).expect("serialize"));
+        process::exit(e.exit_code());
+    });
 
     use proxctl::output::OutputFormat;
     let format = match cli.output.as_str() {

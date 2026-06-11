@@ -201,7 +201,8 @@ pub fn generate(cmd: &clap::Command, path: &[String]) -> Value {
             {"name": "--profile", "type": "string", "description": "Configuration profile"},
             {"name": "--output", "type": "string", "short": "-o", "enum": ["auto", "text", "json"], "default": "auto", "description": "Output format; auto detects TTY"},
             {"name": "--quiet", "type": "boolean", "default": false, "description": "Suppress non-essential output"},
-            {"name": "--insecure", "type": "boolean", "default": false, "description": "Accept invalid TLS certificates"}
+            {"name": "--insecure", "type": "boolean", "default": false, "description": "Accept invalid TLS certificates"},
+            {"name": "--yes", "type": "boolean", "short": "-y", "default": false, "description": "Skip confirmation prompts for destructive operations (required in non-interactive mode)"}
         ],
         "commands": filtered,
         "errors": [
@@ -212,6 +213,7 @@ pub fn generate(cmd: &clap::Command, path: &[String]) -> Value {
             {"kind": "conflict", "exit_code": 6, "retryable": false, "description": "Resource conflict (already in desired state)"},
             {"kind": "confirmation_required", "exit_code": 2, "retryable": false, "description": "Destructive command requires --yes flag in non-interactive mode"},
             {"kind": "timeout", "exit_code": 7, "retryable": true, "description": "Operation timed out"},
+            {"kind": "usage", "exit_code": 2, "retryable": false, "description": "Invalid command syntax or unknown subcommand"},
             {"kind": "other", "exit_code": 1, "retryable": false, "description": "General error"}
         ]
     })

@@ -187,9 +187,9 @@ pub async fn destroy(
 ) -> Result<(), Error> {
     if !yes {
         if !std::io::stdin().is_terminal() {
-            return Err(Error::Config(
-                "Use --yes to confirm destructive operations in non-interactive mode".to_string(),
-            ));
+            return Err(Error::ConfirmationRequired(format!(
+                "destroying VM {vmid} requires confirmation; re-run with --yes to confirm"
+            )));
         }
         let confirm = dialoguer::Confirm::new()
             .with_prompt(format!("Destroy VM {vmid}? This cannot be undone"))

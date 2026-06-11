@@ -148,9 +148,9 @@ pub async fn delete(
 ) -> Result<(), Error> {
     if !yes {
         if !std::io::stdin().is_terminal() {
-            return Err(Error::Config(
-                "Use --yes to confirm destructive operations in non-interactive mode".to_string(),
-            ));
+            return Err(Error::ConfirmationRequired(format!(
+                "deleting snapshot '{name}' of VM {vmid} requires confirmation; re-run with --yes to confirm"
+            )));
         }
         let confirm = dialoguer::Confirm::new()
             .with_prompt(format!(
