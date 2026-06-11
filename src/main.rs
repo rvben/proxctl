@@ -55,6 +55,10 @@ struct Cli {
     #[arg(long, short = 'o', global = true, default_value = "auto")]
     output: String,
 
+    /// Force JSON output (alias for --output json; kept for script compatibility)
+    #[arg(long, global = true, hide = true)]
+    json: bool,
+
     /// Suppress non-essential output
     #[arg(long, global = true)]
     quiet: bool,
@@ -807,10 +811,18 @@ async fn main() {
     });
 
     use proxctl::output::OutputFormat;
+    // Explicit --output always wins; --json is a hidden compat alias that
+    // only activates when --output was not given explicitly (still "auto").
     let format = match cli.output.as_str() {
         "json" => OutputFormat::Json,
         "text" => OutputFormat::Text,
-        _ => OutputFormat::Auto,
+        _ => {
+            if cli.json {
+                OutputFormat::Json
+            } else {
+                OutputFormat::Auto
+            }
+        }
     };
     let output = OutputConfig::new(format, cli.quiet);
 
@@ -970,6 +982,58 @@ mod tests {
     fn cli_output_short_flag() {
         let cli = Cli::try_parse_from(["proxctl", "-o", "text", "schema"]).unwrap();
         assert_eq!(cli.output, "text");
+    }
+
+    #[test]
+    fn cli_json_compat_flag_parses() {
+        // --json is a hidden alias kept for script compatibility
+        let cli = Cli::try_parse_from(["proxctl", "--json", "schema"]).unwrap();
+        assert!(cli.json);
+    }
+
+    #[test]
+    fn json_compat_flag_resolves_to_json_format() {
+        // When --json is given and --output is still "auto" (default),
+        // the format resolution must produce OutputFormat::Json.
+        use proxctl::output::OutputFormat;
+        let cli = Cli::try_parse_from(["proxctl", "--json", "schema"]).unwrap();
+        let format = match cli.output.as_str() {
+            "json" => OutputFormat::Json,
+            "text" => OutputFormat::Text,
+            _ => {
+                if cli.json {
+                    OutputFormat::Json
+                } else {
+                    OutputFormat::Auto
+                }
+            }
+        };
+        assert!(
+            matches!(format, OutputFormat::Json),
+            "--json flag must resolve to OutputFormat::Json"
+        );
+    }
+
+    #[test]
+    fn explicit_output_wins_over_json_compat_flag() {
+        // --output text must win even when --json is also given.
+        use proxctl::output::OutputFormat;
+        let cli = Cli::try_parse_from(["proxctl", "--json", "--output", "text", "schema"]).unwrap();
+        let format = match cli.output.as_str() {
+            "json" => OutputFormat::Json,
+            "text" => OutputFormat::Text,
+            _ => {
+                if cli.json {
+                    OutputFormat::Json
+                } else {
+                    OutputFormat::Auto
+                }
+            }
+        };
+        assert!(
+            matches!(format, OutputFormat::Text),
+            "--output text must win over --json compat flag"
+        );
     }
 
     #[test]
