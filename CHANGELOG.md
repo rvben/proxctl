@@ -9,6 +9,18 @@ All notable changes to this project will be documented in this file.
 
 
 
+
+## [0.2.8](https://github.com/rvben/proxctl/compare/v0.2.7...v0.2.8) - 2026-06-11
+
+### Added
+
+- comply with clispec v0.2 schema shape and runtime requirements ([0c8d392](https://github.com/rvben/proxctl/commit/0c8d392b55e87afbf906dc03299be7b67e93fcdb))
+
+### Fixed
+
+- restore --json compat flag as hidden alias for --output json ([ba0ec45](https://github.com/rvben/proxctl/commit/ba0ec457ca11d453b52e137c340eb22b997dd26c))
+- complete clispec v0.2 conformance to 100% ([a204e63](https://github.com/rvben/proxctl/commit/a204e63572463497ecbb49bc67b217ec16d2b2f7))
+
 ## [0.2.7](https://github.com/rvben/proxctl/compare/v0.2.6...v0.2.7) - 2026-04-03
 
 ## [0.2.6](https://github.com/rvben/proxctl/compare/v0.2.5...v0.2.6) - 2026-04-03
