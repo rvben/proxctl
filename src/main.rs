@@ -1,4 +1,3 @@
-use std::io::IsTerminal;
 use std::path::PathBuf;
 use std::process;
 
@@ -30,7 +29,11 @@ const VERSION: &str = env!("CARGO_PKG_VERSION");
 // ── CLI Structures ──────────────────────────────────────────────────
 
 #[derive(Parser)]
-#[command(name = "proxctl", version, about = "CLI for Proxmox VE")]
+#[command(
+    name = "proxctl",
+    version,
+    about = "CLI for Proxmox VE. Run 'proxctl schema' for machine-readable introspection."
+)]
 struct Cli {
     /// Proxmox host (e.g. pve.example.com:8006)
     #[arg(long, env = "PROXMOX_HOST", global = true)]
@@ -48,9 +51,9 @@ struct Cli {
     #[arg(long, env = "PROXMOX_PROFILE", global = true)]
     profile: Option<String>,
 
-    /// Output as JSON
-    #[arg(long, global = true)]
-    json: bool,
+    /// Output format: auto (detect TTY), text, or json
+    #[arg(long, short = 'o', global = true, default_value = "auto")]
+    output: String,
 
     /// Suppress non-essential output
     #[arg(long, global = true)]
@@ -129,7 +132,11 @@ enum Command {
     Config(ConfigCommand),
 
     /// Print JSON schema for agent integration
-    Schema,
+    Schema {
+        /// Optional command path to narrow schema output (e.g. "vm" or "vm list")
+        #[arg(value_name = "COMMAND")]
+        path: Vec<String>,
+    },
 
     /// Generate shell completions
     Completions {
@@ -307,7 +314,7 @@ async fn run_health(
     let version = client.get_version().await?;
     let nodes = client.list_nodes().await?;
 
-    if output.json {
+    if output.is_json() {
         let json = json!({
             "status": "ok",
             "server_version": format!("{}-{}", version.version, version.release),
@@ -336,7 +343,7 @@ async fn run_version(
 ) -> Result<(), proxctl::api::Error> {
     let server_version = client.get_version().await?;
 
-    if output.json {
+    if output.is_json() {
         let json = json!({
             "cli_version": VERSION,
             "server_version": format!("{}-{}", server_version.version, server_version.release),
@@ -396,7 +403,7 @@ async fn run_config_check(
 ) -> Result<(), proxctl::api::Error> {
     let version = client.get_version().await?;
 
-    if output.json {
+    if output.is_json() {
         let json = json!({
             "status": "ok",
             "server_version": format!("{}-{}", version.version, version.release),
@@ -414,10 +421,10 @@ async fn run_config_check(
 
 // ── Schema ──────────────────────────────────────────────────────────
 
-fn print_schema() {
+fn print_schema(path: &[String]) {
     use clap::CommandFactory;
     let cmd = Cli::command();
-    let schema = proxctl::schema::generate(&cmd);
+    let schema = proxctl::schema::generate(&cmd, path);
     println!(
         "{}",
         serde_json::to_string_pretty(&schema).expect("serialize schema")
@@ -760,20 +767,14 @@ async fn run_config_init() -> Result<(), Error> {
     Ok(())
 }
 
-/// Print an error to stderr. When stdout is not a TTY (piped), output
-/// structured JSON so consuming agents can parse error details.
 fn print_error(e: &Error) {
-    if std::io::stdout().is_terminal() {
-        eprintln!("Error: {e}");
-    } else {
-        let json = json!({
-            "error": {
-                "kind": e.kind(),
-                "message": e.to_string(),
-            }
-        });
-        eprintln!("{}", serde_json::to_string(&json).expect("serialize error"));
-    }
+    let json = json!({
+        "error": {
+            "kind": e.kind(),
+            "message": e.to_string(),
+        }
+    });
+    eprintln!("{}", serde_json::to_string(&json).expect("serialize error"));
 }
 
 // ── Main ────────────────────────────────────────────────────────────
@@ -782,12 +783,18 @@ fn print_error(e: &Error) {
 async fn main() {
     let cli = Cli::parse();
 
-    let output = OutputConfig::new(cli.json, cli.quiet);
+    use proxctl::output::OutputFormat;
+    let format = match cli.output.as_str() {
+        "json" => OutputFormat::Json,
+        "text" => OutputFormat::Text,
+        _ => OutputFormat::Auto,
+    };
+    let output = OutputConfig::new(format, cli.quiet);
 
     // Handle commands that do not require authentication
     match &cli.command {
-        Command::Schema => {
-            print_schema();
+        Command::Schema { path } => {
+            print_schema(path);
             return;
         }
         Command::Completions { shell, install } => {
@@ -889,12 +896,18 @@ async fn main() {
             proxctl::commands::apply::run(&client, output, cmd, cli.node.as_deref()).await
         }
         Command::Export(cmd) => {
-            proxctl::commands::export::run(&client, output, cmd, cli.node.as_deref(), cli.json)
-                .await
+            proxctl::commands::export::run(
+                &client,
+                output,
+                cmd,
+                cli.node.as_deref(),
+                output.is_json(),
+            )
+            .await
         }
 
         // Already handled above
-        Command::Schema
+        Command::Schema { .. }
         | Command::Completions { .. }
         | Command::Config(ConfigCommand::Init)
         | Command::Config(ConfigCommand::Show) => {
@@ -919,15 +932,21 @@ mod tests {
     fn cli_schema_no_auth_required() {
         // Schema command should parse without host/token
         let cli = Cli::try_parse_from(["proxctl", "schema"]).unwrap();
-        assert!(matches!(cli.command, Command::Schema));
+        assert!(matches!(cli.command, Command::Schema { .. }));
         assert!(cli.host.is_none());
         assert!(cli.token.is_none());
     }
 
     #[test]
-    fn cli_json_flag() {
-        let cli = Cli::try_parse_from(["proxctl", "--json", "schema"]).unwrap();
-        assert!(cli.json);
+    fn cli_output_json_flag() {
+        let cli = Cli::try_parse_from(["proxctl", "--output", "json", "schema"]).unwrap();
+        assert_eq!(cli.output, "json");
+    }
+
+    #[test]
+    fn cli_output_short_flag() {
+        let cli = Cli::try_parse_from(["proxctl", "-o", "text", "schema"]).unwrap();
+        assert_eq!(cli.output, "text");
     }
 
     #[test]
@@ -1132,8 +1151,8 @@ token = "admin@pve!prod=prodtoken123"
         // load_config with a non-existent path returns (None, None, None)
         let (host, token, insecure) = load_config(Some("nonexistent_profile_xyz"));
         // Since the default config file likely doesn't have this profile
-        assert!(host.is_none() || true); // Gracefully handles missing
-        let _ = (token, insecure);
+        // The function gracefully handles missing files by returning None values
+        let _ = (host, token, insecure);
     }
 
     #[test]
@@ -1300,6 +1319,36 @@ host = "pve.example.com:8006"
                 assert!(include_state);
             }
             _ => panic!("expected Export Vm"),
+        }
+    }
+
+    #[test]
+    fn error_envelope_format() {
+        use proxctl::api::Error;
+        let e = Error::Config("missing host".to_string());
+        let json = serde_json::json!({
+            "error": {
+                "kind": e.kind(),
+                "message": e.to_string(),
+            }
+        });
+        let s = serde_json::to_string(&json).unwrap();
+        let v: serde_json::Value = serde_json::from_str(&s).unwrap();
+        assert_eq!(v["error"]["kind"], "config");
+        assert!(
+            v["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("missing host")
+        );
+    }
+
+    #[test]
+    fn cli_schema_with_path() {
+        let cli = Cli::try_parse_from(["proxctl", "schema", "vm"]).unwrap();
+        match &cli.command {
+            Command::Schema { path } => assert_eq!(path, &["vm"]),
+            _ => panic!("expected Schema"),
         }
     }
 }

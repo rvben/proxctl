@@ -13,8 +13,14 @@ fn require_node<'a>(node: Option<&'a str>, global_node: Option<&'a str>) -> Resu
 }
 
 fn confirm_action(action: &str, yes: bool) -> Result<(), Error> {
+    use std::io::IsTerminal;
     if yes {
         return Ok(());
+    }
+    if !std::io::stdin().is_terminal() {
+        return Err(Error::ConfirmationRequired(format!(
+            "pass --yes to confirm: {action}"
+        )));
     }
     eprint!("Are you sure you want to {action}? [y/N] ");
     let mut input = String::new();
@@ -260,7 +266,7 @@ async fn list(
 
     let total = all_backups.len();
 
-    if out.json {
+    if out.is_json() {
         let paginated: Vec<serde_json::Value> = list_args.paginate(&all_backups).to_vec();
         let paginated = list_args.filter_fields(paginated);
         let envelope = list_args.paginated_json(&paginated, total);
@@ -388,7 +394,7 @@ async fn restore(
 async fn schedule_list(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
     let data: Vec<serde_json::Value> = client.get("/cluster/backup").await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }

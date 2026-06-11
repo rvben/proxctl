@@ -14,7 +14,7 @@ pub async fn show(
     let path = format!("/nodes/{node}/qemu/{vmid}/cloudinit");
     let data: serde_json::Value = client.get(&path).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }

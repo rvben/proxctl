@@ -56,7 +56,7 @@ pub async fn run(
     }
 
     // Print JSON output
-    if output.json {
+    if output.is_json() {
         output.print_data(&serde_json::to_string_pretty(&results).expect("serialize"));
     }
 
@@ -83,7 +83,7 @@ async fn process_manifest(
         Ok(c) => c,
         Err(e) => {
             let label = sm.label();
-            if output.json {
+            if output.is_json() {
                 let json = diff::result_json(
                     sm,
                     &reconciler::ReconcileAction::NoOp,
@@ -113,7 +113,7 @@ async fn process_manifest(
     let action = compute_diff(&reconciler, current.as_ref(), sm);
 
     // Display diff
-    if !output.json {
+    if !output.is_json() {
         diff::format_diff(sm, &action, resolved_vmid);
     }
 
@@ -148,7 +148,7 @@ async fn process_manifest(
             Ok(diff::result_json(sm, &action, final_vmid, "ok", None))
         }
         Err(e) => {
-            if !output.json {
+            if !output.is_json() {
                 eprintln!("ERR {}: {e}", sm.label());
             }
             let json = diff::result_json(sm, &action, resolved_vmid, "error", Some(&e.to_string()));

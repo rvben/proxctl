@@ -35,7 +35,7 @@ pub async fn exec(
             let exited = status.get("exited").and_then(|v| v.as_u64()).unwrap_or(0);
 
             if exited == 1 {
-                if out.json {
+                if out.is_json() {
                     out.print_data(&serde_json::to_string_pretty(&status).expect("serialize"));
                 } else {
                     if let Some(stdout) = status.get("out-data").and_then(|v| v.as_str()) {
@@ -59,7 +59,7 @@ pub async fn exec(
     }
 
     // No PID returned; display raw result
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&result).expect("serialize"));
     } else {
         out.print_message(&format!("Command submitted: {}", command.join(" ")));
@@ -79,7 +79,7 @@ pub async fn file_read(
     let api_path = format!("/nodes/{node}/qemu/{vmid}/agent/file-read?file={path}");
     let data: serde_json::Value = client.get(&api_path).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
     } else {
         let content = data.get("content").and_then(|v| v.as_str()).unwrap_or("");
@@ -119,7 +119,7 @@ pub async fn info(
     let path = format!("/nodes/{node}/qemu/{vmid}/agent/info");
     let data: serde_json::Value = client.get(&path).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }

@@ -203,8 +203,14 @@ fn require_node<'a>(
 }
 
 fn confirm_action(action: &str, yes: bool) -> Result<(), Error> {
+    use std::io::IsTerminal;
     if yes {
         return Ok(());
+    }
+    if !std::io::stdin().is_terminal() {
+        return Err(Error::ConfirmationRequired(format!(
+            "pass --yes to confirm: {action}"
+        )));
     }
     eprint!("Are you sure you want to {action}? [y/N] ");
     let mut input = String::new();
@@ -282,7 +288,7 @@ async fn list(
     let nodes = client.list_nodes().await?;
     let total = nodes.len();
 
-    if out.json {
+    if out.is_json() {
         let values: Vec<serde_json::Value> = nodes
             .iter()
             .map(|n| serde_json::to_value(n).expect("serialize node"))
@@ -353,7 +359,7 @@ async fn list(
 async fn status(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Result<(), Error> {
     let data: serde_json::Value = client.get(&format!("/nodes/{node}/status")).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -500,7 +506,7 @@ async fn stop_all(
 async fn services(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Result<(), Error> {
     let data: Vec<serde_json::Value> = client.get(&format!("/nodes/{node}/services")).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -568,7 +574,7 @@ async fn service_action(
 async fn network_list(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Result<(), Error> {
     let data: Vec<serde_json::Value> = client.get(&format!("/nodes/{node}/network")).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -631,7 +637,7 @@ async fn network_show(
         .get(&format!("/nodes/{node}/network/{iface}"))
         .await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -655,7 +661,7 @@ async fn network_show(
 async fn disk_list(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Result<(), Error> {
     let data: Vec<serde_json::Value> = client.get(&format!("/nodes/{node}/disks/list")).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -717,7 +723,7 @@ async fn disk_smart(
     let path = format!("/nodes/{node}/disks/smart?disk={disk}");
     let data: serde_json::Value = client.get(&path).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -780,7 +786,7 @@ async fn syslog(
     let path = format!("/nodes/{node}/syslog?limit={lines}");
     let data: Vec<serde_json::Value> = client.get(&path).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -796,7 +802,7 @@ async fn syslog(
 async fn apt_list(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Result<(), Error> {
     let data: Vec<serde_json::Value> = client.get(&format!("/nodes/{node}/apt/update")).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -860,7 +866,7 @@ async fn certificate_info(
         .get(&format!("/nodes/{node}/certificates/info"))
         .await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }

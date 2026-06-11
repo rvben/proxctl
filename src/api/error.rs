@@ -37,6 +37,9 @@ pub enum Error {
 
     #[error("{0}")]
     Other(String),
+
+    #[error("Confirmation required: {0}")]
+    ConfirmationRequired(String),
 }
 
 impl Error {
@@ -50,6 +53,7 @@ impl Error {
             Error::Conflict(_) => "conflict",
             Error::Timeout(_) => "timeout",
             Error::Http(_) | Error::Other(_) => "other",
+            Error::ConfirmationRequired(_) => "confirmation_required",
         }
     }
 
@@ -62,6 +66,7 @@ impl Error {
             Error::Conflict(_) => exit_codes::CONFLICT,
             Error::Timeout(_) => exit_codes::TIMEOUT,
             Error::Http(_) | Error::Other(_) => exit_codes::GENERAL_ERROR,
+            Error::ConfirmationRequired(_) => exit_codes::CONFIG_ERROR,
         }
     }
 
@@ -72,6 +77,20 @@ impl Error {
             _ => Error::Api { status, message },
         }
     }
+}
+
+/// Require explicit confirmation for destructive operations.
+///
+/// Returns `Ok(())` when `yes` is true (flag passed) or stdin is a TTY (interactive mode).
+/// Returns `Err(ConfirmationRequired)` when running non-interactively without `--yes`.
+pub fn check_confirmation(yes: bool, resource: &str) -> Result<(), Error> {
+    use std::io::IsTerminal;
+    if yes || std::io::stdin().is_terminal() {
+        return Ok(());
+    }
+    Err(Error::ConfirmationRequired(format!(
+        "pass --yes to confirm: {resource}"
+    )))
 }
 
 #[cfg(test)]
@@ -231,5 +250,13 @@ mod tests {
             message: "unprocessable entity".to_string(),
         };
         assert_eq!(err.to_string(), "API error 422: unprocessable entity");
+    }
+
+    #[test]
+    fn confirmation_required_kind_and_exit_code() {
+        let err = Error::ConfirmationRequired("destroy VM 100".into());
+        assert_eq!(err.kind(), "confirmation_required");
+        assert_eq!(err.exit_code(), exit_codes::CONFIG_ERROR);
+        assert!(err.to_string().contains("Confirmation required"));
     }
 }

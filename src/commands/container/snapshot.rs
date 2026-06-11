@@ -17,7 +17,7 @@ pub async fn list(
     let path = format!("/nodes/{node}/lxc/{vmid}/snapshot");
     let snapshots: Vec<serde_json::Value> = client.get(&path).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&snapshots).expect("serialize"));
         return Ok(());
     }

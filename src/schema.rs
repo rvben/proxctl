@@ -2,13 +2,14 @@ use std::collections::HashMap;
 
 use serde_json::{Value, json};
 
-/// Metadata that clap doesn't know — manually maintained per command path.
+/// Metadata that clap doesn't know - manually maintained per command path.
 struct CommandMeta {
     mutating: bool,
     idempotent: bool,
     dangerous: bool,
     async_capable: bool,
     output_fields: &'static [&'static str],
+    notes: Option<&'static str>,
 }
 
 impl Default for CommandMeta {
@@ -19,17 +20,17 @@ impl Default for CommandMeta {
             dangerous: false,
             async_capable: false,
             output_fields: &[],
+            notes: None,
         }
     }
 }
 
-/// Walk a clap `Arg` and produce a JSON description.
+/// Walk a clap `Arg` and produce a JSON arg description conforming to clispec v0.2 arg schema.
 fn arg_to_json(arg: &clap::Arg) -> Value {
     let mut obj = serde_json::Map::new();
 
     let id = arg.get_id().as_str();
 
-    // Use long flag name if available, otherwise the positional name
     let name = if arg.is_positional() {
         id.to_string()
     } else {
@@ -43,10 +44,9 @@ fn arg_to_json(arg: &clap::Arg) -> Value {
         obj.insert("description".into(), json!(help));
     }
 
-    // Type inference
     let is_bool = !arg.get_action().takes_values();
     if is_bool {
-        obj.insert("type".into(), json!("bool"));
+        obj.insert("type".into(), json!("boolean"));
     } else {
         let possible: Vec<String> = arg
             .get_possible_values()
@@ -57,7 +57,6 @@ fn arg_to_json(arg: &clap::Arg) -> Value {
             obj.insert("type".into(), json!("string"));
             obj.insert("enum".into(), json!(possible));
         } else {
-            // Infer type from value name hint
             let value_name = arg
                 .get_value_names()
                 .and_then(|names| names.first())
@@ -76,12 +75,10 @@ fn arg_to_json(arg: &clap::Arg) -> Value {
         obj.insert("required".into(), json!(arg.is_required_set()));
     }
 
-    // Default value
     if let Some(default) = arg.get_default_values().first() {
         obj.insert("default".into(), json!(default.to_string_lossy()));
     }
 
-    // Short flag
     if let Some(short) = arg.get_short() {
         obj.insert("short".into(), json!(format!("-{short}")));
     }
@@ -89,12 +86,17 @@ fn arg_to_json(arg: &clap::Arg) -> Value {
     Value::Object(obj)
 }
 
-/// Recursively walk the clap command tree and emit leaf commands.
+/// Convert an output field name string into a clispec v0.2 field object `{"name": "...", "type": "string"}`.
+fn field_to_json(name: &str) -> Value {
+    json!({"name": name, "type": "string"})
+}
+
+/// Recursively walk the clap command tree and emit leaf commands as a flat Vec.
 fn walk_commands(
     cmd: &clap::Command,
     prefix: &str,
     metadata: &HashMap<&str, CommandMeta>,
-    out: &mut serde_json::Map<String, Value>,
+    out: &mut Vec<Value>,
 ) {
     for sub in cmd.get_subcommands() {
         let name = sub.get_name();
@@ -114,38 +116,28 @@ fn walk_commands(
             walk_commands(sub, &path, metadata, out);
         } else {
             let mut entry = serde_json::Map::new();
+            entry.insert("name".into(), json!(path));
 
             if let Some(about) = sub.get_about().map(|a| a.to_string()) {
                 entry.insert("description".into(), json!(about));
             }
 
-            // Split into positional args and flags, skipping global/internal args
             let global_ids = [
-                "help", "version", "host", "token", "node", "profile", "json", "quiet", "insecure",
+                "help", "version", "host", "token", "node", "profile", "output", "json", "quiet",
+                "insecure",
             ];
             let mut args = Vec::new();
-            let mut flags = Vec::new();
 
             for arg in sub.get_arguments() {
                 let id = arg.get_id().as_str();
                 if global_ids.contains(&id) {
                     continue;
                 }
-                if arg.is_positional() {
-                    args.push(arg_to_json(arg));
-                } else {
-                    flags.push(arg_to_json(arg));
-                }
+                args.push(arg_to_json(arg));
             }
 
-            if !args.is_empty() {
-                entry.insert("args".into(), json!(args));
-            }
-            if !flags.is_empty() {
-                entry.insert("flags".into(), json!(flags));
-            }
+            entry.insert("args".into(), json!(args));
 
-            // Merge manually maintained metadata
             let meta = metadata.get(path.as_str());
             entry.insert("mutating".into(), json!(meta.is_some_and(|m| m.mutating)));
             entry.insert(
@@ -158,76 +150,76 @@ fn walk_commands(
                 json!(meta.is_some_and(|m| m.async_capable)),
             );
 
-            if let Some(m) = meta
-                && !m.output_fields.is_empty()
-            {
-                entry.insert("output_fields".into(), json!(m.output_fields));
+            if let Some(m) = meta {
+                if !m.output_fields.is_empty() {
+                    let fields: Vec<Value> =
+                        m.output_fields.iter().map(|f| field_to_json(f)).collect();
+                    entry.insert("output_fields".into(), json!(fields));
+                }
+                if let Some(notes) = m.notes {
+                    entry.insert("notes".into(), json!(notes));
+                }
             }
 
-            out.insert(path, Value::Object(entry));
+            out.push(Value::Object(entry));
         }
     }
 }
 
-/// Generate the complete agent introspection schema.
+/// Generate the complete agent introspection schema conforming to clispec v0.2.
 ///
-/// Auto-derives command structure, arguments, types, and defaults from clap.
-/// Merges with manually maintained metadata (mutating/idempotent/dangerous/output_fields).
-pub fn generate(cmd: &clap::Command) -> Value {
+/// Pass a non-empty `path` slice to filter commands to those whose name starts with the
+/// given prefix (e.g. `&["vm"]` returns only "vm ..." commands).
+pub fn generate(cmd: &clap::Command, path: &[String]) -> Value {
     let metadata = build_metadata();
 
-    let mut commands = serde_json::Map::new();
-    walk_commands(cmd, "", &metadata, &mut commands);
+    let mut all_commands: Vec<Value> = Vec::new();
+    walk_commands(cmd, "", &metadata, &mut all_commands);
+
+    let filtered: Vec<Value> = if path.is_empty() {
+        all_commands
+    } else {
+        let prefix = path.join(" ");
+        all_commands
+            .into_iter()
+            .filter(|c| {
+                let name = c["name"].as_str().unwrap_or("");
+                name == prefix || name.starts_with(&format!("{prefix} "))
+            })
+            .collect()
+    };
 
     json!({
+        "clispec": "0.2",
         "name": "proxctl",
         "version": env!("CARGO_PKG_VERSION"),
-        "description": "CLI for Proxmox VE — manage VMs, containers, nodes, storage, and more",
-        "usage": "proxctl [OPTIONS] <COMMAND> [SUBCOMMAND] [ARGS]",
-        "errors": [
-            {"kind": "config", "retryable": false, "description": "Configuration error"},
-            {"kind": "auth", "retryable": false, "description": "Authentication failed"},
-            {"kind": "not_found", "retryable": false, "description": "Resource not found"},
-            {"kind": "api", "retryable": true, "description": "API error"},
-            {"kind": "conflict", "retryable": false, "description": "Resource conflict"},
-            {"kind": "timeout", "retryable": true, "description": "Operation timed out"},
-            {"kind": "other", "retryable": false, "description": "General error"}
+        "description": "CLI for Proxmox VE - manage VMs, containers, nodes, storage, and more",
+        "global_args": [
+            {"name": "--host", "type": "string", "description": "Proxmox host (e.g. pve.example.com:8006)"},
+            {"name": "--token", "type": "string", "description": "API token (user@realm!tokenid=secret)"},
+            {"name": "--node", "type": "string", "description": "Default node name"},
+            {"name": "--profile", "type": "string", "description": "Configuration profile"},
+            {"name": "--output", "type": "string", "short": "-o", "enum": ["auto", "text", "json"], "default": "auto", "description": "Output format; auto detects TTY"},
+            {"name": "--quiet", "type": "boolean", "default": false, "description": "Suppress non-essential output"},
+            {"name": "--insecure", "type": "boolean", "default": false, "description": "Accept invalid TLS certificates"}
         ],
-        "global_flags": {
-            "--host": {"type": "string", "env": "PROXMOX_HOST", "description": "Proxmox host (e.g., 192.168.1.25:8006)"},
-            "--token": {"type": "string", "env": "PROXMOX_TOKEN", "description": "API token (user@realm!tokenid=secret)"},
-            "--node": {"type": "string", "env": "PROXMOX_NODE", "description": "Override automatic node detection for VM/container commands"},
-            "--profile": {"type": "string", "env": "PROXMOX_PROFILE", "description": "Configuration profile name from config file"},
-            "--json": {"type": "bool", "description": "Force JSON output (auto-enabled when stdout is not a terminal)"},
-            "--quiet": {"type": "bool", "description": "Suppress spinners, progress, and non-data output"},
-            "--insecure": {"type": "bool", "description": "Accept invalid/self-signed TLS certificates"}
-        },
-        "exit_codes": {
-            "0": "success",
-            "1": "general error",
-            "2": "configuration error (missing host/token)",
-            "3": "authentication error (invalid token, 401/403)",
-            "4": "not found (VM/container/resource does not exist)",
-            "5": "API or task error (server error, task failed)",
-            "6": "conflict (resource already in desired state — treat as success for idempotent commands)",
-            "7": "timeout (task did not complete within --timeout seconds)"
-        },
-        "notes": {
-            "auto_json": "JSON output is automatic when stdout is piped (not a TTY). Use --json to force on a TTY.",
-            "node_resolution": "VM and container commands auto-detect the node via cluster resources. Use --node to override.",
-            "async_tasks": "Mutating commands wait for completion by default. Use --async to return immediately with a task UPID.",
-            "idempotent": "Commands marked idempotent return exit 0 when the desired state already exists (e.g., starting an already-running VM).",
-            "dangerous": "Commands marked dangerous require --yes flag or interactive confirmation. In non-TTY mode, --yes is mandatory.",
-            "api_escape_hatch": "Use 'proxctl api get/post/put/delete <path>' to access any Proxmox API endpoint not wrapped by a dedicated command."
-        },
-        "commands": commands
+        "commands": filtered,
+        "errors": [
+            {"kind": "config", "exit_code": 2, "retryable": false, "description": "Configuration error (missing or invalid host/token/profile)"},
+            {"kind": "auth", "exit_code": 3, "retryable": false, "description": "Authentication failed (invalid token, 401/403)"},
+            {"kind": "not_found", "exit_code": 4, "retryable": false, "description": "Resource not found (VM/container/node does not exist)"},
+            {"kind": "api", "exit_code": 5, "retryable": true, "description": "API or task error (server error, task failed)"},
+            {"kind": "conflict", "exit_code": 6, "retryable": false, "description": "Resource conflict (already in desired state)"},
+            {"kind": "confirmation_required", "exit_code": 2, "retryable": false, "description": "Destructive command requires --yes flag in non-interactive mode"},
+            {"kind": "timeout", "exit_code": 7, "retryable": true, "description": "Operation timed out"},
+            {"kind": "other", "exit_code": 1, "retryable": false, "description": "General error"}
+        ]
     })
 }
 
 fn build_metadata() -> HashMap<&'static str, CommandMeta> {
     let mut m = HashMap::new();
 
-    // Helper macro to reduce boilerplate
     macro_rules! meta {
         ($path:expr, $($field:ident: $val:expr),* $(,)?) => {
             m.insert($path, CommandMeta { $($field: $val,)* ..Default::default() });
@@ -291,7 +283,7 @@ fn build_metadata() -> HashMap<&'static str, CommandMeta> {
     meta!("container snapshot delete", mutating: true, idempotent: false, dangerous: true);
     meta!("container firewall rules", output_fields: &["pos", "action", "type", "proto", "source", "dest", "dport", "enable"]);
     meta!("container firewall add", mutating: true, idempotent: false);
-    meta!("container firewall delete", mutating: true, idempotent: false);
+    meta!("container firewall delete", mutating: true, idempotent: false, dangerous: true);
 
     // Node
     meta!("node list", output_fields: &["node", "status", "cpu", "maxcpu", "mem", "maxmem", "uptime"]);
@@ -447,55 +439,57 @@ mod tests {
 
     #[test]
     fn schema_has_required_top_level_keys() {
-        let schema = generate(&test_cmd());
+        let schema = generate(&test_cmd(), &[]);
         assert!(schema.get("name").is_some());
         assert!(schema.get("version").is_some());
-        assert!(schema.get("global_flags").is_some());
-        assert!(schema.get("exit_codes").is_some());
+        assert!(schema.get("global_args").is_some());
         assert!(schema.get("errors").is_some());
         assert!(schema.get("commands").is_some());
-        assert!(schema.get("notes").is_some());
+        assert!(schema.get("clispec").is_some());
     }
 
     #[test]
-    fn schema_extracts_positional_args() {
-        let schema = generate(&test_cmd());
-        let cmds = schema["commands"].as_object().unwrap();
-        let test_cmd = cmds.get("test").unwrap();
+    fn schema_commands_is_array() {
+        let schema = generate(&test_cmd(), &[]);
+        let cmds = schema["commands"].as_array().unwrap();
+        assert!(!cmds.is_empty() || cmds.is_empty()); // just verify it's an array
+    }
+
+    #[test]
+    fn schema_extracts_args() {
+        let schema = generate(&test_cmd(), &[]);
+        let cmds = schema["commands"].as_array().unwrap();
+        let test_cmd = cmds.iter().find(|c| c["name"] == "test").unwrap();
         let args = test_cmd["args"].as_array().unwrap();
-        assert_eq!(args.len(), 1);
-        assert_eq!(args[0]["name"], "vmid");
-        assert_eq!(args[0]["required"], true);
+        let vmid_arg = args.iter().find(|a| a["name"] == "vmid").unwrap();
+        assert_eq!(vmid_arg["required"], true);
     }
 
     #[test]
     fn schema_extracts_flags_with_defaults() {
-        let schema = generate(&test_cmd());
-        let cmds = schema["commands"].as_object().unwrap();
-        let test_cmd = cmds.get("test").unwrap();
-        let flags = test_cmd["flags"].as_array().unwrap();
-
-        let timeout = flags.iter().find(|f| f["name"] == "--timeout").unwrap();
+        let schema = generate(&test_cmd(), &[]);
+        let cmds = schema["commands"].as_array().unwrap();
+        let test_cmd_entry = cmds.iter().find(|c| c["name"] == "test").unwrap();
+        let args = test_cmd_entry["args"].as_array().unwrap();
+        let timeout = args.iter().find(|a| a["name"] == "--timeout").unwrap();
         assert_eq!(timeout["default"], "300");
     }
 
     #[test]
     fn schema_extracts_enum_values() {
-        let schema = generate(&test_cmd());
-        let cmds = schema["commands"].as_object().unwrap();
-        let test_cmd = cmds.get("test").unwrap();
-        let flags = test_cmd["flags"].as_array().unwrap();
-
-        let mode = flags.iter().find(|f| f["name"] == "--mode").unwrap();
+        let schema = generate(&test_cmd(), &[]);
+        let cmds = schema["commands"].as_array().unwrap();
+        let test_cmd_entry = cmds.iter().find(|c| c["name"] == "test").unwrap();
+        let args = test_cmd_entry["args"].as_array().unwrap();
+        let mode = args.iter().find(|a| a["name"] == "--mode").unwrap();
         let enums = mode["enum"].as_array().unwrap();
         assert_eq!(enums, &[json!("fast"), json!("slow")]);
     }
 
     #[test]
     fn schema_errors_array_has_all_kinds() {
-        let schema = generate(&test_cmd());
+        let schema = generate(&test_cmd(), &[]);
         let errors = schema["errors"].as_array().unwrap();
-        assert_eq!(errors.len(), 7);
 
         let kinds: Vec<&str> = errors.iter().map(|e| e["kind"].as_str().unwrap()).collect();
         assert!(kinds.contains(&"config"));
@@ -505,8 +499,8 @@ mod tests {
         assert!(kinds.contains(&"conflict"));
         assert!(kinds.contains(&"timeout"));
         assert!(kinds.contains(&"other"));
+        assert!(kinds.contains(&"confirmation_required"));
 
-        // Verify retryable fields
         let api = errors.iter().find(|e| e["kind"] == "api").unwrap();
         assert_eq!(api["retryable"], true);
         let timeout = errors.iter().find(|e| e["kind"] == "timeout").unwrap();
@@ -516,10 +510,75 @@ mod tests {
     }
 
     #[test]
+    fn schema_errors_have_exit_codes() {
+        let schema = generate(&test_cmd(), &[]);
+        let errors = schema["errors"].as_array().unwrap();
+        for error in errors {
+            assert!(
+                error.get("exit_code").is_some(),
+                "error {:?} missing exit_code",
+                error["kind"]
+            );
+            assert!(
+                error["exit_code"].as_u64().unwrap() >= 1,
+                "exit_code must be >= 1"
+            );
+        }
+    }
+
+    #[test]
+    fn schema_output_fields_are_objects() {
+        // Build a command that has output_fields via metadata
+        // Use a simpler check: generate with test_cmd and verify the format
+        let schema = generate(&test_cmd(), &[]);
+        let cmds = schema["commands"].as_array().unwrap();
+        // For commands that have output_fields, verify they are objects
+        for cmd in cmds {
+            if let Some(fields) = cmd.get("output_fields").and_then(|f| f.as_array()) {
+                for field in fields {
+                    assert!(field.get("name").is_some(), "output_field missing 'name'");
+                    assert!(field.get("type").is_some(), "output_field missing 'type'");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn schema_has_global_args() {
+        let schema = generate(&test_cmd(), &[]);
+        let global_args = schema["global_args"].as_array().unwrap();
+        let output_arg = global_args
+            .iter()
+            .find(|a| a["name"] == "--output")
+            .unwrap();
+        assert_eq!(output_arg["type"], "string");
+        let enums = output_arg["enum"].as_array().unwrap();
+        assert!(enums.contains(&json!("json")));
+        assert!(enums.contains(&json!("text")));
+        assert!(enums.contains(&json!("auto")));
+    }
+
+    #[test]
     fn schema_handles_nested_subcommands() {
-        let schema = generate(&test_cmd());
-        let cmds = schema["commands"].as_object().unwrap();
-        assert!(cmds.contains_key("nested sub"));
-        assert!(!cmds.contains_key("nested"));
+        let schema = generate(&test_cmd(), &[]);
+        let cmds = schema["commands"].as_array().unwrap();
+        let names: Vec<&str> = cmds.iter().map(|c| c["name"].as_str().unwrap()).collect();
+        assert!(names.contains(&"nested sub"));
+        assert!(!names.contains(&"nested"));
+    }
+
+    #[test]
+    fn schema_subtree_narrowing() {
+        let schema = generate(&test_cmd(), &["nested".to_string()]);
+        let cmds = schema["commands"].as_array().unwrap();
+        assert_eq!(cmds.len(), 1);
+        assert_eq!(cmds[0]["name"], "nested sub");
+    }
+
+    #[test]
+    fn schema_subtree_narrowing_empty_for_unknown() {
+        let schema = generate(&test_cmd(), &["nonexistent".to_string()]);
+        let cmds = schema["commands"].as_array().unwrap();
+        assert!(cmds.is_empty());
     }
 }

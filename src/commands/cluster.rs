@@ -82,7 +82,7 @@ pub async fn run(
 async fn status(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
     let data: Vec<serde_json::Value> = client.get("/cluster/status").await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -134,7 +134,7 @@ async fn resources(
 ) -> Result<(), Error> {
     let data = client.get_cluster_resources(type_filter).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -167,7 +167,7 @@ async fn resources(
 async fn nextid(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
     let id: serde_json::Value = client.get("/cluster/nextid").await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&id).expect("serialize"));
     } else {
         let id_str = match &id {
@@ -185,7 +185,7 @@ async fn log(client: &ProxmoxClient, out: OutputConfig, max: u64) -> Result<(), 
     let path = format!("/cluster/log?max={max}");
     let data: Vec<serde_json::Value> = client.get(&path).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -208,7 +208,7 @@ async fn log(client: &ProxmoxClient, out: OutputConfig, max: u64) -> Result<(), 
 async fn options(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
     let data: serde_json::Value = client.get("/cluster/options").await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -232,7 +232,7 @@ async fn options(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error>
 async fn ha_resources(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
     let data: Vec<serde_json::Value> = client.get("/cluster/ha/resources").await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -267,7 +267,7 @@ async fn ha_resources(client: &ProxmoxClient, out: OutputConfig) -> Result<(), E
 async fn ha_status(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
     let data: Vec<serde_json::Value> = client.get("/cluster/ha/status/current").await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }

@@ -92,7 +92,7 @@ pub async fn list(
 
     let total = containers.len();
 
-    if out.json {
+    if out.is_json() {
         let paginated: Vec<serde_json::Value> = list_args.paginate(&containers).to_vec();
         let paginated = list_args.filter_fields(paginated);
         let envelope = list_args.paginated_json(&paginated, total);
@@ -176,7 +176,7 @@ pub async fn status(
     let path = format!("/nodes/{node}/lxc/{vmid}/status/current");
     let data: serde_json::Value = client.get(&path).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -421,7 +421,7 @@ pub async fn console(
         "hint": "Open the Proxmox web UI or use `pct enter` on the node to access the container.",
     });
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&info).expect("serialize"));
     } else {
         println!("Container {vmid} console (node: {node})");

@@ -7,8 +7,14 @@ use crate::api::client::ProxmoxClient;
 use crate::output::{OutputConfig, use_color};
 
 fn confirm_action(action: &str, yes: bool) -> Result<(), Error> {
+    use std::io::IsTerminal;
     if yes {
         return Ok(());
+    }
+    if !std::io::stdin().is_terminal() {
+        return Err(Error::ConfirmationRequired(format!(
+            "pass --yes to confirm: {action}"
+        )));
     }
     eprint!("Are you sure you want to {action}? [y/N] ");
     let mut input = String::new();
@@ -176,7 +182,7 @@ pub async fn run(
 async fn users(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
     let data: Vec<serde_json::Value> = client.get("/access/users").await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -227,7 +233,7 @@ async fn users(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
 async fn user_show(client: &ProxmoxClient, out: OutputConfig, userid: &str) -> Result<(), Error> {
     let data: serde_json::Value = client.get(&format!("/access/users/{userid}")).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -310,7 +316,7 @@ async fn user_delete(
 async fn roles(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
     let data: Vec<serde_json::Value> = client.get("/access/roles").await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -346,7 +352,7 @@ async fn roles(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
 async fn acl(client: &ProxmoxClient, out: OutputConfig) -> Result<(), Error> {
     let data: Vec<serde_json::Value> = client.get("/access/acl").await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -398,7 +404,7 @@ async fn token_list(client: &ProxmoxClient, out: OutputConfig, userid: &str) -> 
     let path = format!("/access/users/{userid}/token");
     let data: Vec<serde_json::Value> = client.get(&path).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -468,7 +474,7 @@ async fn token_create(
     let path = format!("/access/users/{userid}/token/{tokenid}");
     let data: serde_json::Value = client.post(&path, &param_refs).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
     } else {
         let value = data.get("value").and_then(|v| v.as_str()).unwrap_or("-");

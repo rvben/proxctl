@@ -136,7 +136,7 @@ async fn list(
 
     let total = data.len();
 
-    if out.json {
+    if out.is_json() {
         let paginated: Vec<serde_json::Value> = list_args.paginate(&data).to_vec();
         let paginated = list_args.filter_fields(paginated);
         let envelope = list_args.paginated_json(&paginated, total);
@@ -195,7 +195,7 @@ async fn status(client: &ProxmoxClient, out: OutputConfig, upid: &str) -> Result
     let path = format!("/nodes/{node}/tasks/{upid}/status");
     let data: serde_json::Value = client.get(&path).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -226,7 +226,7 @@ async fn log(client: &ProxmoxClient, out: OutputConfig, upid: &str) -> Result<()
     let path = format!("/nodes/{node}/tasks/{upid}/log");
     let data: Vec<serde_json::Value> = client.get(&path).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }

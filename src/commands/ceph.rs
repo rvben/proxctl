@@ -147,7 +147,7 @@ pub async fn run(
 async fn status(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Result<(), Error> {
     let data: serde_json::Value = client.get(&format!("/nodes/{node}/ceph/status")).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -199,7 +199,7 @@ async fn status(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Result
 async fn osd_list(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Result<(), Error> {
     let data: serde_json::Value = client.get(&format!("/nodes/{node}/ceph/osd")).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -283,7 +283,7 @@ async fn osd_create(
 async fn pool_list(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Result<(), Error> {
     let data: Vec<serde_json::Value> = client.get(&format!("/nodes/{node}/ceph/pools")).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
@@ -380,7 +380,7 @@ async fn pool_create(
 async fn mon_list(client: &ProxmoxClient, out: OutputConfig, node: &str) -> Result<(), Error> {
     let data: Vec<serde_json::Value> = client.get(&format!("/nodes/{node}/ceph/mon")).await?;
 
-    if out.json {
+    if out.is_json() {
         out.print_data(&serde_json::to_string_pretty(&data).expect("serialize"));
         return Ok(());
     }
