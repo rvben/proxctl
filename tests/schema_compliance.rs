@@ -2,7 +2,7 @@ use serde_json::Value;
 
 #[test]
 fn schema_validates_against_clispec_v0_2() {
-    let schema_str = include_str!("fixtures/clispec-v0.2.json");
+    let schema_str = include_str!("fixtures/clispec-v0.3.json");
     let meta_schema: Value = serde_json::from_str(schema_str).expect("parse clispec schema");
 
     use clap::Command;
@@ -14,7 +14,7 @@ fn schema_validates_against_clispec_v0_2() {
     let errors: Vec<_> = compiled.iter_errors(&generated).collect();
     if !errors.is_empty() {
         let msgs: Vec<String> = errors.iter().map(|e| e.to_string()).collect();
-        panic!("clispec v0.2 validation failed:\n{}", msgs.join("\n"));
+        panic!("clispec v0.3 validation failed:\n{}", msgs.join("\n"));
     }
 }
 

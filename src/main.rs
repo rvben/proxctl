@@ -158,6 +158,9 @@ enum Command {
 
     /// Show CLI and server version
     Version,
+
+    /// Describe supported resource families without loading credentials
+    Capabilities,
 }
 
 // ── Subcommand Enums (stubs) ────────────────────────────────────────
@@ -847,6 +850,24 @@ async fn main() {
             run_config_show();
             return;
         }
+        Command::Capabilities => {
+            let value = serde_json::json!({
+                "resources": ["virtual_machines", "containers", "nodes", "storage", "backups", "firewall", "access", "pools", "ceph"],
+                "declarative_apply": true,
+                "structured_output": true
+            });
+            if output.is_json() {
+                println!(
+                    "{}",
+                    serde_json::to_string_pretty(&value).expect("serialize capabilities")
+                );
+            } else {
+                println!(
+                    "Resources: VMs, containers, nodes, storage, backups, firewall, access, pools, Ceph\nDeclarative apply: supported"
+                );
+            }
+            return;
+        }
         _ => {}
     }
 
@@ -944,6 +965,7 @@ async fn main() {
         // Already handled above
         Command::Schema { .. }
         | Command::Completions { .. }
+        | Command::Capabilities
         | Command::Config(ConfigCommand::Init)
         | Command::Config(ConfigCommand::Show) => {
             unreachable!()

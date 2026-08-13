@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use serde_json::{Value, json};
 
-/// A single output field descriptor for clispec v0.2.
+/// A single output field descriptor for clispec v0.3.
 struct FieldDef {
     name: &'static str,
     type_: &'static str,
@@ -208,8 +208,8 @@ pub fn generate(cmd: &clap::Command, path: &[String]) -> Value {
             .collect()
     };
 
-    json!({
-        "clispec": "0.2",
+    let mut schema = json!({
+        "clispec": "0.3",
         "name": "proxctl",
         "version": env!("CARGO_PKG_VERSION"),
         "description": "CLI for Proxmox VE - manage VMs, containers, nodes, storage, and more",
@@ -235,7 +235,75 @@ pub fn generate(cmd: &clap::Command, path: &[String]) -> Value {
             {"kind": "usage", "exit_code": 2, "retryable": false, "description": "Invalid command syntax or unknown subcommand"},
             {"kind": "other", "exit_code": 1, "retryable": false, "description": "General error"}
         ]
-    })
+    });
+    enrich_v0_3(&mut schema);
+    schema
+}
+
+fn enrich_v0_3(schema: &mut Value) {
+    schema["output"] = json!({"tty":"text","piped":"json"});
+    let Some(commands) = schema["commands"].as_array_mut() else {
+        return;
+    };
+    for command in commands {
+        let Some(object) = command.as_object_mut() else {
+            continue;
+        };
+        let name = object["name"].as_str().unwrap_or_default().to_string();
+        let mutating = object["mutating"].as_bool().unwrap_or(false);
+        let idempotent = object
+            .remove("idempotent")
+            .and_then(|value| value.as_bool())
+            .unwrap_or(!mutating);
+        object.insert(
+            "effects".into(),
+            json!(if !mutating {
+                "read_only"
+            } else if idempotent {
+                "idempotent"
+            } else {
+                "non_idempotent"
+            }),
+        );
+        if name == "completions" {
+            object.insert("output_kind".into(), json!("opaque"));
+            object.insert("media_type".into(), json!("text/plain"));
+            continue;
+        }
+        let list = name.ends_with(" list") || matches!(name.as_str(), "capabilities");
+        object.insert(
+            "cardinality".into(),
+            json!(if list { "bounded" } else { "single" }),
+        );
+        if name == "capabilities" {
+            object.insert("example".into(), json!({"args":["capabilities"]}));
+        }
+        if name == "schema" {
+            object.insert(
+                "stdout_schema".into(),
+                json!({"$ref":"https://clispec.dev/schema/v0.3.json"}),
+            );
+        }
+        if mutating && object["dangerous"].as_bool().unwrap_or(false) {
+            object.insert("confirmation_bypass_arg".into(), json!("--yes"));
+        }
+        if let Some(fields) = object
+            .get_mut("output_fields")
+            .and_then(Value::as_array_mut)
+        {
+            for field in fields {
+                if let Some(field) = field.as_object_mut()
+                    && field.get("type").and_then(Value::as_str) == Some("array")
+                    && !field.contains_key("items")
+                {
+                    field.insert("items".into(), json!({"type":"object"}));
+                }
+            }
+        }
+        if !object.contains_key("output_fields") && !object.contains_key("stdout_schema") {
+            object.insert("stdout_schema".into(), json!({}));
+        }
+    }
 }
 
 fn build_metadata() -> HashMap<&'static str, CommandMeta> {
