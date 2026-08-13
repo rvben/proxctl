@@ -210,8 +210,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           path: |
-            proxctl-*-${{ matrix.target }}.tar.gz*
-            proxctl-*-${{ matrix.target }}.zip*
+            proxctl-${{ github.ref_name }}-${{ matrix.target }}.tar.gz*
+            proxctl-${{ github.ref_name }}-${{ matrix.target }}.zip*
           name: release-${{ matrix.target }}
 
   sdist:
@@ -298,10 +298,10 @@ jobs:
         with:
           generate_release_notes: true
           files: |
-            artifacts/release-*/proxctl-*.tar.gz
-            artifacts/release-*/proxctl-*.tar.gz.sha256
-            artifacts/release-*/proxctl-*.zip
-            artifacts/release-*/proxctl-*.zip.sha256
+            artifacts/release-*/proxctl-${{ github.ref_name }}-*.tar.gz
+            artifacts/release-*/proxctl-${{ github.ref_name }}-*.tar.gz.sha256
+            artifacts/release-*/proxctl-${{ github.ref_name }}-*.zip
+            artifacts/release-*/proxctl-${{ github.ref_name }}-*.zip.sha256
 
       - name: Dry Run Summary
         if: ${{ inputs.dry_run == true }}
