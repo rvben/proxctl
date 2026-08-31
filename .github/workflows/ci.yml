@@ -47,7 +47,7 @@ jobs:
         with:
           toolchain: 1.96.0
           components: rustfmt, clippy
-      - uses: taiki-e/install-action@82cd3e7658a6f96c86c0234aeeda1748937cb0a1
+      - uses: taiki-e/install-action@37f7c5781271959fb65b6b35224e28652ff2b63d
         with:
           tool: cargo-tarpaulin
       - name: Generate coverage
