@@ -2,14 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.2.11](https://github.com/rvben/proxctl/compare/v0.2.10...v0.2.11) - 2026-09-27
 
+### Fixed
 
-
-
-
-
-
-
+- **deps**: update rustls to 0.23.45 for RUSTSEC-2026-0285 ([ab25f51](https://github.com/rvben/proxctl/commit/ab25f51bfcc069bbbdfa848de1302714b29caf18))
+- **release**: use package version in dry runs ([0d2c8e7](https://github.com/rvben/proxctl/commit/0d2c8e72bab2953ce4ce7b6de0b9ec51a89c8512))
+- **ci**: install pinned Rust components ([fd01582](https://github.com/rvben/proxctl/commit/fd01582d595a2695622d852054cfe3008701b71a))
+- **release**: scope assets to the current tag ([8f5f850](https://github.com/rvben/proxctl/commit/8f5f8503ed6ff29fb7fe3053495f85ac8869306e))
 
 ## [0.2.9](https://github.com/rvben/proxctl/compare/v0.2.8...v0.2.9) - 2026-06-20
 
