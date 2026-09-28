@@ -29,7 +29,7 @@ owo-colors = "4"
 dirs = "6"
 thiserror = "2"
 indicatif = "0.17"
-rpassword = "7"
+rpassword = "7.5.4"
 dialoguer = "0.11"
 
 [dev-dependencies]
