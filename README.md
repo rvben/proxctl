@@ -9,6 +9,14 @@ A command-line interface for [Proxmox VE](https://www.proxmox.com/en/proxmox-vir
 
 ## Install
 
+### Homebrew
+
+```sh
+brew install rvben/tap/proxctl
+```
+
+### Other installation methods
+
 ```bash
 # From crates.io
 cargo install proxctl
